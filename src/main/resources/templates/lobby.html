@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Lobby</title>
+</head>
+<body>
+<h1>Welcome to the Lobby</h1>
+
+<!-- Display the current lobby ID -->
+<p>You are currently in lobby: <strong th:text="${lobbyId}"></strong></p>
+
+<!-- Display the list of users in the lobby and their ready status -->
+<h2>Users in this lobby:</h2>
+<ul>
+    <li th:each="user, readyStatus : ${users}">
+        <span th:text="${user}"></span>
+        <span th:text="${readyStatus} ? '✅ Ready' : '⏳ Not Ready'"></span>
+    </li>
+</ul>
+
+<!-- Button to toggle the user's ready status -->
+<form action="/toggleReady" method="post">
+    <button type="submit" th:text="${users[session.username]} ? 'Unready' : 'Ready'"></button>
+</form>
+
+<!-- Continue button (only enabled if all users are ready) -->
+<form action="/continue" method="post">
+    <button type="submit" th:disabled="${!allReady}">Continue</button>
+</form>
+
+<!-- Form to switch to another lobby -->
+<form action="/switchLobby" method="post">
+    <label for="newLobbyId">Enter another lobby ID to join:</label>
+    <input type="text" id="newLobbyId" name="newLobbyId" />
+    <button type="submit">Switch Lobby</button>
+</form>
+</body>
+</html>
