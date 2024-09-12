@@ -5,11 +5,12 @@ import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import jakarta.servlet.http.HttpSession
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.RequestParam
 import java.util.UUID
 
 @Controller
-class LobbyController {
+class LobbyController(val messagingTemplate: SimpMessagingTemplate) {
 
     // Global storage for lobbies (mapping of lobbyId -> list of users and their ready status)
     private val lobbies = mutableMapOf<String, MutableMap<String, Boolean>>()  // Lobby -> User -> Ready status
@@ -30,6 +31,9 @@ class LobbyController {
         // Add the user to the lobby with a default "not ready" status
         val lobbyUsers = lobbies[lobbyId]!!
         lobbyUsers.putIfAbsent(username, false)
+
+        // Notify other users that someone has joined the lobby
+        messagingTemplate.convertAndSend("/topic/lobbyUpdates", WebSocketController.LobbyEvent("$username joined the lobby."))
 
         // Pass the lobbyId and list of users to the model
         model.addAttribute("lobbyId", lobbyId)
@@ -56,19 +60,8 @@ class LobbyController {
         val lobbyUsers = lobbies[lobbyId]!!
         lobbyUsers[username] = !(lobbyUsers[username] ?: false)
 
-        return "redirect:/"
-    }
-
-    // Continue to movie selection if all users are ready
-    @PostMapping("/continue")
-    fun continueToMovies(session: HttpSession): String {
-        val lobbyId = session.getAttribute("lobbyId") as String
-
-        // Check if all users are ready in the current lobby
-        val lobbyUsers = lobbies[lobbyId]!!
-        if (lobbyUsers.values.all { it }) {
-            return "redirect:/vote"
-        }
+        // Notify other users that someone changed their ready status
+        messagingTemplate.convertAndSend("/topic/lobbyUpdates", WebSocketController.LobbyEvent("$username is ${if (lobbyUsers[username] == true) "ready" else "not ready"}."))
 
         return "redirect:/"
     }
@@ -97,4 +90,21 @@ class LobbyController {
     private fun generateUsername(): String {
         return "User" + UUID.randomUUID().toString().take(5)
     }
+
+    @PostMapping("/continue")
+    fun continueToMovies(session: HttpSession): String {
+        val lobbyId = session.getAttribute("lobbyId") as String
+
+        // Check if all users are ready in the current lobby
+        val lobbyUsers = lobbies[lobbyId]!!
+        if (lobbyUsers.values.all { it }) {
+            // Store the movie survey progress for this user in the session
+            session.setAttribute("currentMovieIndex", 0)  // Start with the first movie
+            session.setAttribute("userVotes", mutableMapOf<String, String>())  // Store votes
+            return "redirect:/vote"
+        }
+
+        return "redirect:/"
+    }
+
 }

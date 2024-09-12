@@ -29,6 +29,8 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-test")  // Testing framework
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")  // JUnit 5 support for Kotlin
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")  // JUnit 5 runtime support
+
+	implementation("org.springframework.boot:spring-boot-starter-websocket")
 }
 
 

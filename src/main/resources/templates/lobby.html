@@ -2,6 +2,8 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Lobby</title>
+    <script src="https://cdn.jsdelivr.net/sockjs/1.0.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 <body>
 <h1>Welcome to the Lobby</h1>
@@ -18,8 +20,8 @@
     </li>
 </ul>
 
-<!-- Button to toggle the user's ready status -->
-<form action="/toggleReady" method="post">
+<!-- Button to toggle the user's ready status (auto-refresh after submit) -->
+<form action="/toggleReady" method="post" onsubmit="setTimeout(function(){ window.location.reload(); }, 100);">
     <button type="submit" th:text="${users[session.username]} ? 'Unready' : 'Ready'"></button>
 </form>
 
@@ -28,11 +30,34 @@
     <button type="submit" th:disabled="${!allReady}">Continue</button>
 </form>
 
+<!-- Reset Session Button -->
+<form action="/reset" method="get">
+    <button type="submit">Reset Session and Join New Lobby</button>
+</form>
+
 <!-- Form to switch to another lobby -->
 <form action="/switchLobby" method="post">
     <label for="newLobbyId">Enter another lobby ID to join:</label>
     <input type="text" id="newLobbyId" name="newLobbyId" />
     <button type="submit">Switch Lobby</button>
 </form>
+
+<script>
+    var stompClient = null;
+
+    function connect() {
+        var socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/lobbyUpdates', function (greeting) {
+                // Reload the page when a lobby update event is received
+                window.location.reload();
+            });
+        });
+    }
+
+    connect();
+</script>
 </body>
 </html>

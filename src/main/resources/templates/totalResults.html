@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Total Results</title>
+</head>
+<body>
+<h1>Total Movie Voting Results</h1>
+
+<ul>
+    <li th:each="entry : ${results}">
+        Movie: <span th:text="${entry.key}"></span>, Likes: <span th:text="${entry.value}"></span>
+    </li>
+</ul>
+</body>
+</html>
