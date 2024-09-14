@@ -9,20 +9,20 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
 
+@Suppress("UNCHECKED_CAST")
 @Controller
 class MovieVoteController(
     val movieService: MovieService,
-    private val lobbyService: LobbyService,
-    service: LobbyService
+    //private val lobbyService: LobbyService,
 ) {
 
     // A map to store aggregated votes for all users in the lobby (lobbyId -> movie -> votes)
-    private val aggregatedVotes = mutableMapOf<String, MutableMap<String, Int>>()
+    //private val aggregatedVotes = mutableMapOf<String, MutableMap<String, Int>>()
 
     @GetMapping("/vote")
     fun showMovie(session: HttpSession, model: Model): String {
         val movieTitles = movieService.getMovieTitles()
-        val lobbyId = session.getAttribute("lobbyId") as? String ?: return "error" // Redirect if no lobby
+        //val lobbyId = session.getAttribute("lobbyId") as? String ?: return "error" // Redirect if no lobby
         val username = session.getAttribute("username") as? String ?: return "error"
 
         // Get the user's current progress
@@ -58,7 +58,7 @@ class MovieVoteController(
 
     @GetMapping("/results")
     fun showResults(session: HttpSession, model: Model): String {
-        val lobbyId = session.getAttribute("lobbyId") as? String ?: return "error"
+        //val lobbyId = session.getAttribute("lobbyId") as? String ?: return "error"
 
         // Aggregate votes here and show the results
         val username = session.getAttribute("username") as? String ?: return "error"

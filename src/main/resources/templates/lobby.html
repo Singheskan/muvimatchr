@@ -50,7 +50,7 @@
         stompClient = Stomp.over(socket);
         stompClient.connect({}, function (frame) {
             console.log('Connected: ' + frame);
-            stompClient.subscribe('/topic/lobbyUpdates', function (greeting) {
+            stompClient.subscribe('/topic/lobbyUpdates', function () {
                 // Reload the page when a lobby update event is received
                 window.location.reload();
             });
