@@ -1,7 +1,6 @@
 package org.example.muvimatchr.controller
 
 import jakarta.servlet.http.HttpSession
-import org.example.muvimatchr.service.LobbyService
 import org.example.muvimatchr.service.MovieService
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
