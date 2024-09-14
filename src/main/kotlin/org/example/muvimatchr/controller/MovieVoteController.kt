@@ -1,6 +1,7 @@
 package org.example.muvimatchr.controller
 
 import jakarta.servlet.http.HttpSession
+import org.example.muvimatchr.service.LobbyService
 import org.example.muvimatchr.service.MovieService
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
@@ -9,7 +10,11 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
 
 @Controller
-class MovieVoteController(val movieService: MovieService) {
+class MovieVoteController(
+    val movieService: MovieService,
+    private val lobbyService: LobbyService,
+    service: LobbyService
+) {
 
     // A map to store aggregated votes for all users in the lobby (lobbyId -> movie -> votes)
     private val aggregatedVotes = mutableMapOf<String, MutableMap<String, Int>>()
@@ -17,9 +22,11 @@ class MovieVoteController(val movieService: MovieService) {
     @GetMapping("/vote")
     fun showMovie(session: HttpSession, model: Model): String {
         val movieTitles = movieService.getMovieTitles()
+        val lobbyId = session.getAttribute("lobbyId") as? String ?: return "error" // Redirect if no lobby
+        val username = session.getAttribute("username") as? String ?: return "error"
 
         // Get the user's current progress
-        val currentMovieIndex = session.getAttribute("currentMovieIndex") as? Int ?: 0
+        val currentMovieIndex = session.getAttribute("currentMovieIndex-$username") as? Int ?: 0
 
         // If we've gone through all movies, show the results page
         if (currentMovieIndex >= movieTitles.size) {
@@ -37,39 +44,27 @@ class MovieVoteController(val movieService: MovieService) {
 
     @PostMapping("/submitVote")
     fun submitVote(@RequestParam("vote") vote: String, @RequestParam("movieTitle") movieTitle: String, session: HttpSession): String {
-        // Get the user's current votes from the session
-        val userVotes = session.getAttribute("userVotes") as? MutableMap<String, String> ?: mutableMapOf()
+        val username = session.getAttribute("username") as? String ?: return "error"
+        val currentMovieIndex = session.getAttribute("currentMovieIndex-$username") as? Int ?: 0
 
-        // Save the user's vote
+        val userVotes = session.getAttribute("userVotes-$username") as? MutableMap<String, String> ?: mutableMapOf()
         userVotes[movieTitle] = vote
-        session.setAttribute("userVotes", userVotes)
 
-        // Increment the current movie index
-        val currentMovieIndex = session.getAttribute("currentMovieIndex") as? Int ?: 0
-        session.setAttribute("currentMovieIndex", currentMovieIndex + 1)
+        session.setAttribute("userVotes-$username", userVotes)
+        session.setAttribute("currentMovieIndex-$username", currentMovieIndex + 1)
 
-        // Redirect to the next movie
         return "redirect:/vote"
     }
 
     @GetMapping("/results")
     fun showResults(session: HttpSession, model: Model): String {
-        val lobbyId = session.getAttribute("lobbyId") as String
-        val userVotes = session.getAttribute("userVotes") as MutableMap<String, String>
+        val lobbyId = session.getAttribute("lobbyId") as? String ?: return "error"
 
-        // Aggregate the user's votes with the lobby's global votes
-        aggregatedVotes.putIfAbsent(lobbyId, mutableMapOf())
-        val lobbyVotes = aggregatedVotes[lobbyId]!!
+        // Aggregate votes here and show the results
+        val username = session.getAttribute("username") as? String ?: return "error"
+        val userVotes = session.getAttribute("userVotes-$username") as? MutableMap<String, String> ?: mutableMapOf()
 
-        userVotes.forEach { (movieTitle, vote) ->
-            if (vote == "like") {
-                lobbyVotes[movieTitle] = (lobbyVotes[movieTitle] ?: 0) + 1
-            }
-        }
-
-        // Show the total results for the lobby
-        model.addAttribute("results", lobbyVotes)
-
-        return "totalResults"
+        model.addAttribute("votes", userVotes)
+        return "results"
     }
 }
