@@ -1,0 +1,43 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    {
+      "number": "1",
+      "name": "Persistence Foundation",
+      "status": "pending"
+    },
+    {
+      "number": "2",
+      "name": "Session & Lobby Flow",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "TMDB Integration & Catalog Caching",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "Vote Recording & Match Aggregation",
+      "status": "pending"
+    },
+    {
+      "number": "5",
+      "name": "Real-Time Notification Layer",
+      "status": "pending"
+    },
+    {
+      "number": "6",
+      "name": "Frontend SPA",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step",
+    "reason": "Phase 1 of 6 · 0% · executing"
+  },
+  "updated_at": "2026-09-01T16:01:40.143Z"
+}
