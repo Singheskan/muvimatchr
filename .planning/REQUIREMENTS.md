@@ -79,34 +79,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SESH-01 | TBD | Pending |
-| SESH-02 | TBD | Pending |
-| SESH-03 | TBD | Pending |
-| SESH-04 | TBD | Pending |
-| SESH-05 | TBD | Pending |
-| CTLG-01 | TBD | Pending |
-| CTLG-02 | TBD | Pending |
-| CTLG-03 | TBD | Pending |
-| CTLG-04 | TBD | Pending |
-| CTLG-05 | TBD | Pending |
-| VOTE-01 | TBD | Pending |
-| VOTE-02 | TBD | Pending |
-| VOTE-03 | TBD | Pending |
-| VOTE-04 | TBD | Pending |
-| VOTE-05 | TBD | Pending |
-| RTIME-01 | TBD | Pending |
-| RTIME-02 | TBD | Pending |
-| RTIME-03 | TBD | Pending |
-| RSLT-01 | TBD | Pending |
-| RSLT-02 | TBD | Pending |
-| RSLT-03 | TBD | Pending |
-| RELI-01 | TBD | Pending |
+| SESH-01 | Phase 2 | Pending |
+| SESH-02 | Phase 2 | Pending |
+| SESH-03 | Phase 2 | Pending |
+| SESH-04 | Phase 2 | Pending |
+| SESH-05 | Phase 2 | Pending |
+| CTLG-01 | Phase 3 | Pending |
+| CTLG-02 | Phase 3 | Pending |
+| CTLG-03 | Phase 3 | Pending |
+| CTLG-04 | Phase 3 | Pending |
+| CTLG-05 | Phase 3 | Pending |
+| VOTE-01 | Phase 4 | Pending |
+| VOTE-02 | Phase 4 | Pending |
+| VOTE-03 | Phase 4 | Pending |
+| VOTE-04 | Phase 4 | Pending |
+| VOTE-05 | Phase 4 | Pending |
+| RTIME-01 | Phase 5 | Pending |
+| RTIME-02 | Phase 5 | Pending |
+| RTIME-03 | Phase 5 | Pending |
+| RSLT-01 | Phase 6 | Pending |
+| RSLT-02 | Phase 6 | Pending |
+| RSLT-03 | Phase 4 | Pending |
+| RELI-01 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22 ⚠️ (roadmap creation pending)
+- Mapped to phases: 22
+- Unmapped: 0 ✓ (all v1 requirements mapped to a phase)
 
 ---
 *Requirements defined: 2026-09-01*
-*Last updated: 2026-09-01 after initial definition*
+*Last updated: 2026-09-01 after roadmap creation (traceability mapped)*
