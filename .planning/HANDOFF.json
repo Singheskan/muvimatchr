@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-09-01T16:12:30.070Z",
+  "phase": "01",
+  "phase_name": "Persistence Foundation",
+  "phase_dir": ".planning/phases/01-persistence-foundation",
+  "plan": 1,
+  "task": 2,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Choose container runtime (checkpoint:decision)", "status": "done", "commit": null, "note": "Resolved via interactive prompt: user selected COLIMA. Not yet written back into 01-01-PLAN.md or a SUMMARY.md — no executor commit exists for this."}
+  ],
+  "remaining_tasks": [
+    {"id": 2, "name": "Install container runtime + upgrade Boot/Kotlin/Gradle toolchain", "status": "in_progress", "progress": "colima+docker installed via brew and RUNNING on host (verified: `colima status` reports running, `docker info` exits 0). build.gradle.kts and gradle/wrapper/gradle-wrapper.properties edited to target state, and MuviMatchrApplicationTests.kt deleted -- but ALL THREE changes are UNCOMMITTED and live only in an isolated agent worktree, not on main. `./gradlew build` has NOT been confirmed green with these changes."},
+    {"id": 3, "name": "Add docker-compose.yml + wire application.properties (datasource/Flyway/ddl-auto=validate)", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "Executor was interrupted mid-Task-2 by the user (budget constraint), before any commit was made and before Task 2's `<verify>` commands were confirmed to pass.", "type": "external", "workaround": "Resume by inspecting the worktree described below, re-running Task 2's verify commands, and either committing that work or discarding and redoing it cleanly."}
+  ],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {"action": "Decide what to do with the leftover agent worktree at .claude/worktrees/agent-a524fff5420ee3fb2 (branch worktree-agent-a524fff5420ee3fb2) -- it holds uncommitted Task 2 progress (build.gradle.kts + gradle-wrapper.properties + test deletion). Either resume execution from there (cd into it, verify, commit, then let the orchestrator merge it back per the worktree cleanup contract) or discard it (`git worktree remove --force`, then `git branch -D worktree-agent-a524fff5420ee3fb2`) and let a fresh executor redo Task 2 clean.", "context": "Agent tool isolation=\"worktree\" was used for the 01-01 executor; the run was interrupted before it returned, so the harness never auto-merged or auto-cleaned it.", "blocking": true},
+    {"action": "Clear or verify .planning/milestone.lock -- it still references this now-ended session (session claude-code-session-id-5baffaa5-9c5c-4a1e-9c20-cf73078a8594, pid 80772). A resuming session should confirm that pid is dead before treating the lock as stale and removing it.", "context": "Left over from this session's phase-01 execution lock.", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Container runtime = Colima", "rationale": "Apache-2.0/free-for-commercial-use, fully CLI-installable via Homebrew with no GUI/license click-through, so Claude could install it unattended. User's explicit choice over Docker Desktop and OrbStack.", "phase": "01"},
+    {"decision": "Discarded uncommitted changes to the old in-memory prototype (MovieVoteController.kt, MovieService.kt, results.html) instead of committing or stashing them.", "rationale": "User confirmed these files are being fully replaced by Phase 1's persistence work, not built upon (already noted as non-reusable in 01-CONTEXT.md).", "phase": "01"},
+    {"decision": "Added .DS_Store to .gitignore and removed the tracked stray file.", "rationale": "User request; macOS artifact with no project value.", "phase": "01"}
+  ],
+  "uncommitted_files": [
+    ".gitignore (staged: adds .DS_Store)",
+    ".planning/STATE.md (phase-begin bookkeeping from state.begin-phase)",
+    ".planning/config.json (workflow._auto_chain_active: false written by execute-phase's chain-flag sync)",
+    ".planning/state.json (mirror of STATE.md phase status)",
+    ".planning/milestone.lock (session lock, see human_actions_pending)",
+    ".claude/worktrees/agent-a524fff5420ee3fb2/ (isolated worktree with Task 2's uncommitted edits, see human_actions_pending)"
+  ],
+  "next_action": "Read .planning/phases/01-persistence-foundation/.continue-here.md, then inspect .claude/worktrees/agent-a524fff5420ee3fb2 to decide resume-vs-redo for Plan 01-01 Task 2, using the already-resolved answer to Task 1 (colima) rather than re-asking the user.",
+  "context_notes": "Phase 1 planning is fully complete and verified (3 plans, 0 blockers/warnings from plan-checker, all requirements+decisions covered) -- this pause is purely mid-execution, on the very first task of the very first plan. Nothing about the plan content itself is in question; this is a clean resume point once the worktree is reconciled."
+}
