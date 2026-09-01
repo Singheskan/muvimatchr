@@ -41,3 +41,7 @@ out/
 
 ### macOS ###
 .DS_Store
+
+### Claude / GSD local session state ###
+.claude/worktrees/
+.planning/milestone.lock
