@@ -30,7 +30,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The schema enforces a unique constraint on (session_id, participant_id, movie_id) for votes, and an upsert write path updates the existing row instead of erroring or creating a duplicate.
   3. The schema enforces a unique constraint on session join codes, rejecting a duplicate.
   4. Flyway migrations apply cleanly to a fresh database and are safe to reapply (schema is fully version-controlled, not manually applied or created via `ddl-auto`).
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Toolchain upgrade to Boot 4.1.1 / Kotlin 2.3.20 / Gradle 8.14.3, persistence dependency set, container runtime install, local Postgres 18 compose service
+- [ ] 01-02-PLAN.md — Tracer: session table, entity and repository proven end-to-end by a full-context restart against real Postgres, plus the join-code unique constraint
+- [ ] 01-03-PLAN.md — Participant and vote tables, entities and repositories, the race-safe native upsert, and the restart proof extended to all three entities
 
 ### Phase 2: Session & Lobby Flow
 **Goal**: A host can create a session and share it, and any number of participants can join with just a display name, get a real identity token, and leave/resume without losing progress.
@@ -97,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Persistence Foundation | 0/TBD | Not started | - |
+| 1. Persistence Foundation | 0/3 | Not started | - |
 | 2. Session & Lobby Flow | 0/TBD | Not started | - |
 | 3. TMDB Integration & Catalog Caching | 0/TBD | Not started | - |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
