@@ -45,3 +45,4 @@ out/
 ### Claude / GSD local session state ###
 .claude/worktrees/
 .planning/milestone.lock
+.planning/research/.cache/
