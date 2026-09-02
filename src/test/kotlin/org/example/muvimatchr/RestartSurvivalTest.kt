@@ -30,16 +30,21 @@ class RestartSurvivalTest {
         activeContext = null
     }
 
+    // NOTE: SpringApplicationBuilder.properties(...) sets *default* properties (the
+    // lowest-precedence property source), so it is silently overridden by the higher-precedence
+    // classpath application.properties datasource config — the test would then run against the
+    // persistent local dev database instead of the ephemeral Testcontainers instance, defeating
+    // D-03 entirely. Command-line-style "--key=value" args passed to .run(...) have the highest
+    // Spring Boot property precedence and correctly win over application.properties.
     private fun startContext(): ConfigurableApplicationContext =
         SpringApplicationBuilder(MuviMatchrApplication::class.java)
-            .properties(
-                "spring.datasource.url=${postgres.jdbcUrl}",
-                "spring.datasource.username=${postgres.username}",
-                "spring.datasource.password=${postgres.password}",
-                "spring.jpa.hibernate.ddl-auto=validate",
-                "server.port=0",
+            .run(
+                "--spring.datasource.url=${postgres.jdbcUrl}",
+                "--spring.datasource.username=${postgres.username}",
+                "--spring.datasource.password=${postgres.password}",
+                "--spring.jpa.hibernate.ddl-auto=validate",
+                "--server.port=0",
             )
-            .run()
             .also { activeContext = it }
 
     @Test
