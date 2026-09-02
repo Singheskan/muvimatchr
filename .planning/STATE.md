@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 current_phase: 02
 current_phase_name: Session & Lobby Flow
 status: planning
-stopped_at: Phase 02 context gathered
+stopped_at: Phase 02 planned — 2 plans, ready for /gsd-execute-phase 02
 last_updated: "2026-09-02T08:00:00.000Z"
 last_activity: 2026-09-02
-last_activity_desc: Phase 02 context gathered (join code format, resume-link token mechanism, no host role, late joiners allowed, duplicate names allowed)
-state_head: 2de56fe
+last_activity_desc: Phase 02 planned (02-01-PLAN.md tracer, 02-02-PLAN.md validation+multi-participant hardening); covers SESH-01 through SESH-05
+state_head: df1ec82
 progress:
   total_phases: 6
   completed_phases: 1
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-09-01)
 
 ## Current Position
 
-Phase: 02 (Session & Lobby Flow) — CONTEXT GATHERED
-Plan: not yet planned
-Status: Phase 02 context captured (02-CONTEXT.md); ready for /gsd-plan-phase 02
-Last activity: 2026-09-02 — Phase 02 discussion complete
+Phase: 02 (Session & Lobby Flow) — PLANNED
+Plan: 02-01-PLAN.md (Wave 1, tracer), 02-02-PLAN.md (Wave 2, depends on 02-01)
+Status: Phase 02 planned; ready for /gsd-execute-phase 02
+Last activity: 2026-09-02 — Phase 02 planning complete
 
 Progress: [███░░░░░░░] 17% (Phase 01 of 6 complete)
 
@@ -87,6 +87,7 @@ Recent decisions affecting current work:
 - Roadmap: Real-time layer deliberately sequenced last so REST/DB correctness can be verified without WebSocket "magic" masking bugs.
 - Roadmap: Phase 2 (Session/Lobby) and Phase 3 (TMDB Catalog) have no dependency on each other and may be built in either order.
 - Phase 2 context (02-CONTEXT.md): short typable join code (not a full URL); resume via a personal link carrying the participant's token (not browser-storage-only); no host special role/flag; late joiners allowed at any time, no session lock; duplicate display names allowed within a session.
+- Phase 2 planning (02-01-PLAN.md/02-02-PLAN.md): `spring-boot-starter-validation` is NOT transitively available (confirmed absent from `runtimeClasspath`) — Plan 02-02 adds it explicitly. `SessionService.createSession()`'s join-code retry loop deliberately has no `@Transactional` of its own (uses plain `save()` per attempt, not `saveAndFlush()` inside a shared transaction) — PostgreSQL aborts the whole transaction after any failed statement, so a shared-transaction retry loop would break on the second attempt.
 
 ### Pending Todos
 
@@ -111,5 +112,5 @@ Items acknowledged and deferred at milestone close, most recent first:
 ## Session Continuity
 
 Last session: 2026-09-02T08:00:00.000Z
-Stopped at: Phase 02 context gathered
-Resume file: .planning/phases/02-session-lobby-flow/02-CONTEXT.md
+Stopped at: Phase 02 planned — ready for /gsd-execute-phase 02
+Resume file: .planning/phases/02-session-lobby-flow/02-01-PLAN.md

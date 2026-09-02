@@ -10,10 +10,12 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- **Phase 2: Session & Lobby Flow** — context gathered (`02-CONTEXT.md`). Key decisions:
-  short typable join code (not a full URL); resume via a personal link carrying the
-  participant's token; no host special role; late joiners allowed anytime, no session
-  lock; duplicate display names allowed. Not yet planned.
+- **Phase 2: Session & Lobby Flow** — planned (`02-01-PLAN.md`, `02-02-PLAN.md`), not
+  yet executed. Wave 1 (`02-01`, tracer): session creation, participant join with
+  SecureRandom+SHA-256 token issuance, and bearer-token resolve/resume, wired
+  end-to-end against real Postgres. Wave 2 (`02-02`, depends on 02-01): Bean
+  Validation on the join request, multi-participant (3+) proof, join-code
+  distinctness proof. Covers SESH-01 through SESH-05.
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -58,7 +60,7 @@ the human-readable history across the whole project.
   `.planning/phases/01-persistence-foundation/01-03-SUMMARY.md`.
 
 ### Next
-- Plan Phase 2 (`/gsd-plan-phase 02`) now that context is captured.
+- Execute Phase 2 (`/gsd-execute-phase 02`), starting with Wave 1 (`02-01-PLAN.md`).
 
 ---
 
@@ -183,6 +185,35 @@ entities, vote tuple uniqueness + working upsert, session join-code uniqueness, 
 Flyway migrate-once/reapply-safety. `./gradlew test` is green (6/6) on `main`.
 `ROADMAP.md` and `.planning/STATE.md` marked Phase 1 complete. Next: discuss/plan Phase
 2 (Session & Lobby Flow).
+
+### 2026-09-02 — Phase 2 planned (`/gsd-plan-phase 02`), after 4 prior interrupted attempts
+Four earlier attempts at planning this phase were interrupted by connection
+errors/stalls before any PLAN.md reached disk. This attempt completed and wrote both
+plans early/incrementally per the retry guidance. Two things worth carrying forward:
+
+1. **02-RESEARCH.md is wrong that Jakarta Bean Validation is transitively available**
+   — confirmed again this session by reading `build.gradle.kts` directly: no
+   `spring-boot-starter-validation` (Spring Boot decoupled it from
+   `spring-boot-starter-web` since Boot 2.3, never re-added here). Plan 02-02 Task 1
+   adds the dependency explicitly and verifies `hibernate-validator` actually resolves
+   on the compile classpath (not just that the Gradle coordinate is declared).
+2. **Caught a real correctness bug in 02-RESEARCH.md's own illustrative join-code
+   retry code before it could ship**: wrapping the collision-retry loop in one
+   `@Transactional` method using `saveAndFlush` per attempt is broken on PostgreSQL —
+   once one statement in a transaction fails, Postgres aborts the *entire* transaction
+   ("current transaction is aborted"), so a second `saveAndFlush` after the first's
+   constraint violation would fail immediately, not retry cleanly. Plan 02-01's
+   `SessionService.createSession()` deliberately has no `@Transactional` of its own and
+   calls plain `save()` per attempt instead, so each attempt gets its own transaction —
+   consistent with how Phase 1's own `SessionRepositoryTest` already behaves (no
+   surrounding `@Transactional`, two sequential `saveAndFlush` calls, first commits,
+   second fails cleanly).
+
+Also required updating two Phase 1 test files (`VoteRepositoryTest.kt`,
+`RestartSurvivalTest.kt`) as part of Plan 02-01 Task 1, since both construct
+`Participant(...)` without the new required `tokenHash` constructor argument that this
+phase adds — a compile-breaking ripple from making the token column `NOT NULL` with no
+default, caught during planning rather than left for the executor to discover.
 
 ## Format for future entries
 
