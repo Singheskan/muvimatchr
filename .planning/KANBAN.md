@@ -10,9 +10,8 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- **Phase 1: Persistence Foundation** — Plan 01-01 complete (all 3 tasks). Ready to
-  execute Plan 01-02 (tracer slice — Session entity + restart-survival proof), which
-  is already planned (`01-02-PLAN.md` exists, no SUMMARY yet).
+- **Phase 1: Persistence Foundation** — Plan 01-02 complete (both tasks). Ready to
+  execute Plan 01-03 (Participant + Vote tables, upsert, extended restart proof).
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -29,10 +28,22 @@ the human-readable history across the whole project.
   `application.properties` with `ddl-auto=validate` (`de4a3a2`). Placeholder test
   deleted. Full plan SUMMARY at
   `.planning/phases/01-persistence-foundation/01-01-SUMMARY.md`.
+- **Plan 01-02 (tracer slice — Session entity + restart-survival proof) — complete.**
+  Executed via an isolated `gsd-executor` worktree agent; merged cleanly (fast-forward)
+  onto `main`. Built `V1__create_session.sql`, `Session.kt` (JPA entity), and
+  `SessionRepository.kt`. `RestartSurvivalTest` proves a `Session` written by one
+  application context is readable by a second, independently-started context against
+  the same real PostgreSQL 18 (via Testcontainers) — the core D-03 architecture proof
+  this whole phase exists to establish — and that Flyway does not reapply migrations on
+  the second startup. `SessionRepositoryTest` proves the join-code unique constraint is
+  enforced at the database level. Caught and fixed a real bug mid-execution: the test
+  was initially, silently hitting the persistent local dev database instead of the
+  ephemeral Testcontainers instance (see Issues below). `./gradlew test` green (3/3).
+  Full plan SUMMARY at `.planning/phases/01-persistence-foundation/01-02-SUMMARY.md`.
 
 ### Next
-- Execute Plan 01-02 (tracer slice — Session entity + restart-survival proof, Wave 2).
-- Wave 3: Plan 01-03 (Participant + Vote tables, upsert, extended restart proof).
+- Execute Plan 01-03 (Participant + Vote tables, upsert, extended restart proof, Wave 3) —
+  the last plan in Phase 1.
 
 ---
 
@@ -93,6 +104,46 @@ installed temurin-21 JDK; not fixed via a committed `gradle.properties` since th
 would hardcode a machine-specific path outside Task 2's declared file scope. Completed
 Task 2 and Task 3, committed both, wrote `01-01-SUMMARY.md`, cleared the stale
 `.planning/milestone.lock` (dead PID, confirmed via `ps`) and consumed `HANDOFF.json`.
+
+### 2026-09-02 — Plan 01-02 worktree branched before Plan 01-01's implementation commits landed
+The `gsd-executor` agent spawned for Plan 01-02 branched its isolated worktree at the
+moment of dispatch, which was *before* this same session's earlier direct-on-main
+commits for Plan 01-01 (`a3845f2`, `de4a3a2`, the docs closeout `1c77b80`) existed —
+so the worktree only had Plan 01-01's planning docs, not the actual toolchain
+upgrade/compose file it depends on. The plan's own `<worktree_branch_check>` guard
+fired the expected warning. **Resolution:** the agent confirmed its branch had zero
+unique commits of its own at that point (`git log main..HEAD` was empty), so it ran a
+risk-free `git merge --ff-only main` inside the worktree before starting any task,
+pulling in the required Plan 01-01 work, then proceeded normally. No data loss, no
+manual intervention needed — flagged here in case a future multi-plan wave hits the
+same staleness with a worktree that already has unique commits (which would NOT be a
+safe fast-forward and would need real reconciliation).
+
+### 2026-09-02 — Testcontainers requires an extra Colima socket-path override
+`./gradlew test` invocations that use Testcontainers (this project's `RestartSurvivalTest`
+and repository tests) failed to start the Ryuk resource-reaper container under Colima
+even with `DOCKER_HOST` correctly pointed at Colima's socket. **Resolution:** also export
+`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` — Testcontainers/Ryuk tries
+to bind-mount the host socket path literally by default, which doesn't match where
+Colima's VM actually exposes it. Documented in `.planning/STATE.md` Blockers/Concerns
+alongside the existing `JAVA_HOME=temurin-21` requirement from Plan 01-01, since every
+future `./gradlew test` run in this phase needs both exports.
+
+### 2026-09-02 — RestartSurvivalTest was silently testing against the wrong database
+While building Plan 01-02's core restart-survival proof, the test initially passed but
+was actually writing to and reading from the persistent local dev PostgreSQL
+(`muvimatchr-db-1` from Plan 01-01's `docker-compose.yml`), not the ephemeral
+Testcontainers-managed instance the test was supposed to use — which would have made the
+"proof" meaningless (a green result regardless of whether restart-survival genuinely
+worked). Root cause: `SpringApplicationBuilder.properties(...)` sets *default*
+(lowest-precedence) properties, so the Testcontainers JDBC URL was silently overridden by
+the higher-precedence classpath `application.properties` datasource config pointing at
+the dev database. **Resolution:** switched to passing the same values as
+command-line-style `--key=value` args to `.run(...)`, which have Spring Boot's highest
+property-source precedence and correctly win. Confirmed the fix via a direct `psql` query
+against the dev database showing no further test writes landing there. One stray
+`join_code='ABC123'` row from before the fix was found and deleted from the dev database
+this session.
 
 ## Format for future entries
 
