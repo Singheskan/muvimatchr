@@ -10,8 +10,8 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- **Phase 1: Persistence Foundation** — Plan 01-02 complete (both tasks). Ready to
-  execute Plan 01-03 (Participant + Vote tables, upsert, extended restart proof).
+- Nothing currently in progress. Phase 1 is complete; Phase 2 (Session & Lobby Flow)
+  has not been discussed or planned yet.
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -40,10 +40,24 @@ the human-readable history across the whole project.
   was initially, silently hitting the persistent local dev database instead of the
   ephemeral Testcontainers instance (see Issues below). `./gradlew test` green (3/3).
   Full plan SUMMARY at `.planning/phases/01-persistence-foundation/01-02-SUMMARY.md`.
+- **Plan 01-03 (Participant + Vote tables, race-safe upsert) — complete. Phase 1 done.**
+  Executed via an isolated `gsd-executor` worktree agent; merged cleanly (fast-forward)
+  onto `main`. Built `V2__create_participant.sql`/`Participant.kt`/`ParticipantRepository.kt`
+  and `V3__create_vote.sql`/`Vote.kt`/`VoteRepository.kt` (native `INSERT ... ON CONFLICT
+  DO UPDATE` upsert on `(session_id, participant_id, movie_id)`, all bindings named
+  `@Param`s, no string interpolation). Extended `RestartSurvivalTest` to write and read
+  back Session + Participant + Vote together across a real context restart, including
+  lazy-association navigation (proves the FK survived, not just scalar columns). Caught
+  and fixed a second real bug mid-execution: `PostgresTestSupport`'s per-test-class
+  container lifecycle raced with Spring's cached DataSource across two test classes (see
+  Issues below). `./gradlew test` green (6/6), independently re-verified by the
+  orchestrator on `main` post-merge. All four ROADMAP Phase 1 success criteria confirmed;
+  ROADMAP.md and STATE.md marked Phase 1 complete. Full plan SUMMARY at
+  `.planning/phases/01-persistence-foundation/01-03-SUMMARY.md`.
 
 ### Next
-- Execute Plan 01-03 (Participant + Vote tables, upsert, extended restart proof, Wave 3) —
-  the last plan in Phase 1.
+- Discuss/plan Phase 2 (Session & Lobby Flow) — no dependency on Phase 3, could also be
+  built in either order per ROADMAP.md.
 
 ---
 
@@ -144,6 +158,30 @@ property-source precedence and correctly win. Confirmed the fix via a direct `ps
 against the dev database showing no further test writes landing there. One stray
 `join_code='ABC123'` row from before the fix was found and deleted from the dev database
 this session.
+
+### 2026-09-02 — PostgresTestSupport's per-class container lifecycle broke on a second consumer
+Plan 01-02's shared `PostgresTestSupport.kt` fixture used JUnit's standard
+`@Testcontainers`/`@Container` lifecycle, which stops and restarts the container per
+test *class*. This worked fine with only one consumer (`SessionRepositoryTest`), but
+Plan 01-03 added a second consumer (`VoteRepositoryTest`): on a full-suite run, the
+extension stopped the first class's container and started a fresh one (different port)
+for the second class, while Spring's cached `ApplicationContext`/`DataSource` kept
+pointing at the now-dead first container — `Connection refused`, but only when running
+the whole suite together, never when running either test class in isolation (which made
+it easy to miss). **Resolution:** switched `PostgresTestSupport` to Testcontainers'
+documented singleton-container pattern — manual `.start()`, no per-class stop — so one
+container instance is shared and stays alive across every test class in the run.
+`./gradlew test` green afterward (6/6, full suite).
+
+### 2026-09-02 — Phase 1 (Persistence Foundation) complete
+All 3 plans executed and merged (`01-01` toolchain/local DB, `01-02` Session tracer
+slice, `01-03` Participant/Vote tables). All four ROADMAP.md Phase 1 success criteria
+confirmed via automated tests, independently re-verified on `main` after each merge
+(not just trusted from the executor's own report): restart survival across all three
+entities, vote tuple uniqueness + working upsert, session join-code uniqueness, and
+Flyway migrate-once/reapply-safety. `./gradlew test` is green (6/6) on `main`.
+`ROADMAP.md` and `.planning/STATE.md` marked Phase 1 complete. Next: discuss/plan Phase
+2 (Session & Lobby Flow).
 
 ## Format for future entries
 

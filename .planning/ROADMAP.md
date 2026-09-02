@@ -13,7 +13,7 @@ MuviMatchr is rebuilt as six horizontal layers rather than vertical feature slic
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Persistence Foundation** - Session/Participant/Vote schema is durable, constraint-enforced, and proven to survive a restart before anything is built on top of it
+- [x] **Phase 1: Persistence Foundation** - Session/Participant/Vote schema is durable, constraint-enforced, and proven to survive a restart before anything is built on top of it
 - [ ] **Phase 2: Session & Lobby Flow** - Hosts can create sessions and participants can join, get an unguessable token, and resume later without losing votes
 - [ ] **Phase 3: TMDB Integration & Catalog Caching** - The movie deck is sourced from real TMDB data, filterable by genre and region-aware streaming availability, cached server-side, with the API key never reaching the frontend
 - [ ] **Phase 4: Vote Recording & Match Aggregation** - Votes are recorded idempotently and the "everyone finished" / "unanimous match" logic is computed correctly and race-free from live data
@@ -39,15 +39,15 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Toolchain upgrade to Boot 4.1.1 / Kotlin 2.3.20 / Gradle 8.14.3, persistence dependency set, container runtime install, local Postgres 18 compose service
+- [x] 01-01-PLAN.md — Toolchain upgrade to Boot 4.1.1 / Kotlin 2.3.20 / Gradle 8.14.3, persistence dependency set, container runtime install, local Postgres 18 compose service
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — Tracer: session table, entity and repository proven end-to-end by a full-context restart against real Postgres, plus the join-code unique constraint
+- [x] 01-02-PLAN.md — Tracer: session table, entity and repository proven end-to-end by a full-context restart against real Postgres, plus the join-code unique constraint
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03-PLAN.md — Participant and vote tables, entities and repositories, the race-safe native upsert, and the restart proof extended to all three entities
+- [x] 01-03-PLAN.md — Participant and vote tables, entities and repositories, the race-safe native upsert, and the restart proof extended to all three entities
 
 ### Phase 2: Session & Lobby Flow
 
@@ -129,7 +129,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Persistence Foundation | 0/3 | Not started | - |
+| 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
 | 2. Session & Lobby Flow | 0/TBD | Not started | - |
 | 3. TMDB Integration & Catalog Caching | 0/TBD | Not started | - |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |

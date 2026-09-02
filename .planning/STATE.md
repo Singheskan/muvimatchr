@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 current_phase: 01
 current_phase_name: Persistence Foundation
-status: executing
-stopped_at: Plan 01-02 complete, ready for Plan 01-03
-last_updated: "2026-09-02T06:45:00.000Z"
+status: phase_complete
+stopped_at: Phase 01 complete (all 3 plans, all 4 success criteria verified)
+last_updated: "2026-09-02T07:30:00.000Z"
 last_activity: 2026-09-02
-last_activity_desc: Plan 01-02 (tracer slice — Session entity + restart-survival proof) completed and merged
-state_head: 6fd1a7b
+last_activity_desc: Plan 01-03 (Participant + Vote tables) completed and merged; Phase 01 fully verified and marked complete in ROADMAP.md
+state_head: 9bbf9ae
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 11
+  completed_plans: 3
+  percent: 17
 ---
 
 # Project State
@@ -27,12 +27,33 @@ See: .planning/PROJECT.md (updated 2026-09-01)
 
 ## Current Position
 
-Phase: 01 (Persistence Foundation) — EXECUTING
-Plan: 3 of 3 (01-03 not yet started)
-Status: Plan 01-02 complete; ready to execute 01-03
-Last activity: 2026-09-02 — Plan 01-02 (tracer slice) completed and merged
+Phase: 01 (Persistence Foundation) — COMPLETE
+Plan: 3 of 3 (all complete)
+Status: Phase 01 verified complete; ready to start Phase 02 (Session & Lobby Flow)
+Last activity: 2026-09-02 — Plan 01-03 completed and merged; Phase 01 marked complete
 
-Progress: [██░░░░░░░░] 11%
+Progress: [███░░░░░░░] 17%
+
+## Phase 1 Verification Summary
+
+All four ROADMAP Phase 1 success criteria confirmed via passing automated tests,
+independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failures):
+
+1. Session, Participant and Vote rows written before a restart are readable by a
+   fresh, independently-constructed application context — `RestartSurvivalTest`
+   (1 test), against real PostgreSQL 18 via Testcontainers, including lazy
+   association navigation (Participant → Session FK survives).
+2. Vote table enforces `UNIQUE (session_id, participant_id, movie_id)`; native
+   upsert (`VoteRepository.upsertVote`, `ON CONFLICT ... DO UPDATE`) updates in
+   place — `VoteRepositoryTest` (3 tests). All bindings are named `@Param`s, no
+   string interpolation into the query.
+3. Session join codes are unique at the database level — `SessionRepositoryTest`
+   (2 tests) — a duplicate `join_code` raises `DataIntegrityViolationException`
+   from the DB, not an app-level pre-check.
+4. Flyway (V1/V2/V3 migrations) applies cleanly to a fresh database and does not
+   reapply on a second startup — asserted via unchanged `flyway_schema_history`
+   row count across the `RestartSurvivalTest` restart. `ddl-auto=validate`
+   throughout; Hibernate never writes DDL.
 
 ## Performance Metrics
 
@@ -88,6 +109,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-02T06:45:00.000Z
-Stopped at: Session resumed, proceeding to Plan 01-03 (Participant + Vote tables)
-Resume file: .planning/phases/01-persistence-foundation/01-03-PLAN.md
+Last session: 2026-09-02T07:30:00.000Z
+Stopped at: Phase 01 complete; next step is starting Phase 02 (Session & Lobby Flow) — not yet discussed or planned
+Resume file: .planning/ROADMAP.md (Phase 02 section)
