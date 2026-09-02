@@ -10,8 +10,10 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Nothing currently in progress. Phase 1 is complete; Phase 2 (Session & Lobby Flow)
-  has not been discussed or planned yet.
+- **Phase 2: Session & Lobby Flow** — context gathered (`02-CONTEXT.md`). Key decisions:
+  short typable join code (not a full URL); resume via a personal link carrying the
+  participant's token; no host special role; late joiners allowed anytime, no session
+  lock; duplicate display names allowed. Not yet planned.
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -56,8 +58,7 @@ the human-readable history across the whole project.
   `.planning/phases/01-persistence-foundation/01-03-SUMMARY.md`.
 
 ### Next
-- Discuss/plan Phase 2 (Session & Lobby Flow) — no dependency on Phase 3, could also be
-  built in either order per ROADMAP.md.
+- Plan Phase 2 (`/gsd-plan-phase 02`) now that context is captured.
 
 ---
 

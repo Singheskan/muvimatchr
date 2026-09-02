@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-current_phase: 01
-current_phase_name: Persistence Foundation
-status: phase_complete
-stopped_at: Phase 01 complete (all 3 plans, all 4 success criteria verified)
-last_updated: "2026-09-02T07:30:00.000Z"
+current_phase: 02
+current_phase_name: Session & Lobby Flow
+status: planning
+stopped_at: Phase 02 context gathered
+last_updated: "2026-09-02T08:00:00.000Z"
 last_activity: 2026-09-02
-last_activity_desc: Plan 01-03 (Participant + Vote tables) completed and merged; Phase 01 fully verified and marked complete in ROADMAP.md
-state_head: 9bbf9ae
+last_activity_desc: Phase 02 context gathered (join code format, resume-link token mechanism, no host role, late joiners allowed, duplicate names allowed)
+state_head: 2de56fe
 progress:
   total_phases: 6
   completed_phases: 1
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-01)
 
 **Core value:** Two (or more) people with different tastes can independently pick movies they'd watch and get a fast, confident answer to "what do we actually both want to watch tonight" — without the back-and-forth debate.
-**Current focus:** Phase 01 — Persistence Foundation
+**Current focus:** Phase 02 — Session & Lobby Flow
 
 ## Current Position
 
-Phase: 01 (Persistence Foundation) — COMPLETE
-Plan: 3 of 3 (all complete)
-Status: Phase 01 verified complete; ready to start Phase 02 (Session & Lobby Flow)
-Last activity: 2026-09-02 — Plan 01-03 completed and merged; Phase 01 marked complete
+Phase: 02 (Session & Lobby Flow) — CONTEXT GATHERED
+Plan: not yet planned
+Status: Phase 02 context captured (02-CONTEXT.md); ready for /gsd-plan-phase 02
+Last activity: 2026-09-02 — Phase 02 discussion complete
 
-Progress: [███░░░░░░░] 17%
+Progress: [███░░░░░░░] 17% (Phase 01 of 6 complete)
 
 ## Phase 1 Verification Summary
 
@@ -86,6 +86,7 @@ Recent decisions affecting current work:
 - Roadmap: Horizontal-layer build order chosen (Persistence -> Session/Lobby -> TMDB Catalog -> Vote/Match -> Real-Time -> Frontend SPA) specifically to prove backend correctness before UI, since that's where the prior prototype failed.
 - Roadmap: Real-time layer deliberately sequenced last so REST/DB correctness can be verified without WebSocket "magic" masking bugs.
 - Roadmap: Phase 2 (Session/Lobby) and Phase 3 (TMDB Catalog) have no dependency on each other and may be built in either order.
+- Phase 2 context (02-CONTEXT.md): short typable join code (not a full URL); resume via a personal link carrying the participant's token (not browser-storage-only); no host special role/flag; late joiners allowed at any time, no session lock; duplicate display names allowed within a session.
 
 ### Pending Todos
 
@@ -97,7 +98,7 @@ None yet.
 - Phase 4 planning needs a concrete concurrency mechanism decision (optimistic locking vs. transactional SQL count) for the "everyone finished" race — flagged by research as the highest-risk logic in the app.
 - Phase 5 planning should review current `@stomp/stompjs` v7 reconnect/resubscribe semantics before implementation (avoid duplicate-message-on-reconnect).
 - Phase 3 planning should re-verify current TMDB rate-limit and image-CDN connection-limit numbers against official docs (research flagged these as low-confidence, forum-sourced).
-- Late-joiner / abandoned-participant handling needs an explicit product decision during Phase 2/4 planning (research flags this as silently breaking results if left undefined).
+- Late-joiner handling: RESOLVED for Phase 2 (see Recent Decisions below — join anytime, no lock). Abandoned-participant handling (someone who joins but never finishes voting) is still undecided and will need a decision during Phase 4 planning (match/aggregation logic must define what "everyone finished" means when a participant never returns).
 
 ## Deferred Items
 
@@ -109,6 +110,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-02T07:30:00.000Z
-Stopped at: Phase 01 complete; next step is starting Phase 02 (Session & Lobby Flow) — not yet discussed or planned
-Resume file: .planning/ROADMAP.md (Phase 02 section)
+Last session: 2026-09-02T08:00:00.000Z
+Stopped at: Phase 02 context gathered
+Resume file: .planning/phases/02-session-lobby-flow/02-CONTEXT.md
