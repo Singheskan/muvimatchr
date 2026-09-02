@@ -1,8 +1,9 @@
 plugins {
-	kotlin("jvm") version "1.9.25"
-	kotlin("plugin.spring") version "1.9.25"
-	id("org.springframework.boot") version "3.3.3"
-	id("io.spring.dependency-management") version "1.1.6"
+	kotlin("jvm") version "2.3.20"
+	kotlin("plugin.spring") version "2.3.20"
+	kotlin("plugin.jpa") version "2.3.20"
+	id("org.springframework.boot") version "4.1.1"
+	id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "org.example"
@@ -31,6 +32,15 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")  // JUnit 5 runtime support
 
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
+
+	implementation("org.springframework.boot:spring-boot-starter-data-jpa")  // Spring Data JPA / Hibernate ORM
+	implementation("org.springframework.boot:spring-boot-starter-flyway")  // Flyway auto-configuration starter (Boot 4+)
+	implementation("org.flywaydb:flyway-database-postgresql")  // Flyway PostgreSQL dialect module
+	implementation("org.postgresql:postgresql")  // PostgreSQL JDBC driver
+
+	testImplementation("org.springframework.boot:spring-boot-testcontainers")  // Spring's @ServiceConnection Testcontainers integration
+	testImplementation("org.testcontainers:testcontainers-postgresql")  // Testcontainers Postgres module (2.0.x artifact id)
+	testImplementation("org.testcontainers:testcontainers-junit-jupiter")  // Testcontainers JUnit 5 integration
 }
 
 
