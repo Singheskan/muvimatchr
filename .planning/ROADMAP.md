@@ -61,12 +61,12 @@ Plans:
   3. A single session can be joined by 3+ distinct participants, confirming group support isn't hardcoded to exactly 2.
   4. A participant who returns later using their previously issued link/token is recognized as the same participant (no duplicate participant row is created), and any votes they already cast are still attributed to them.
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Tracer: session creation, participant join with SecureRandom+SHA-256 token issuance, and bearer-token resolve/resume, wired end-to-end
+- [x] 02-01-PLAN.md — Tracer: session creation, participant join with SecureRandom+SHA-256 token issuance, and bearer-token resolve/resume, wired end-to-end
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
-| 2. Session & Lobby Flow | 0/2 | Not started | - |
+| 2. Session & Lobby Flow | 1/2 | In Progress|  |
 | 3. TMDB Integration & Catalog Caching | 0/TBD | Not started | - |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
