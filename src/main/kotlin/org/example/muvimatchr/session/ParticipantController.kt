@@ -1,12 +1,15 @@
 package org.example.muvimatchr.session
 
+import org.example.muvimatchr.auth.CurrentParticipant
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
 
 @RestController
@@ -28,6 +31,14 @@ class ParticipantController(private val participantService: ParticipantService) 
             )
         )
     }
+
+    @GetMapping("/{sessionId}/participants/me")
+    fun me(@PathVariable sessionId: UUID, @CurrentParticipant participant: Participant): ParticipantResponse {
+        if (participant.session.id != sessionId) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "No such participant in this session")
+        }
+        return ParticipantResponse(participant.id!!, participant.session.id!!, participant.displayName)
+    }
 }
 
 data class JoinRequest(val displayName: String)
@@ -39,3 +50,5 @@ data class JoinResponse(
     val token: String,
     val resumeUrl: String,
 )
+
+data class ParticipantResponse(val participantId: UUID, val sessionId: UUID, val displayName: String)
