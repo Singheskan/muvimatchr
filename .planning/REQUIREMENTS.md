@@ -12,7 +12,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SESH-01**: Host can create a session and get a unique shareable join code/link
 - [x] **SESH-02**: Participant joins via code/link by picking a display name — no account required
 - [x] **SESH-03**: Each participant gets a server-issued unguessable token for the session (not just their display name), so votes can't be spoofed via a guessed code
-- [ ] **SESH-04**: A session supports 2+ participants
+- [x] **SESH-04**: A session supports 2+ participants
 - [x] **SESH-05**: A participant can leave and resume the same session later via their retained link/token without losing votes
 
 ### Movie Catalog
@@ -82,7 +82,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SESH-01 | Phase 2 | Complete |
 | SESH-02 | Phase 2 | Complete |
 | SESH-03 | Phase 2 | Complete |
-| SESH-04 | Phase 2 | Pending |
+| SESH-04 | Phase 2 | Complete |
 | SESH-05 | Phase 2 | Complete |
 | CTLG-01 | Phase 3 | Pending |
 | CTLG-02 | Phase 3 | Pending |

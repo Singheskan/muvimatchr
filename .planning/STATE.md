@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 current_phase: 02
 current_phase_name: Session & Lobby Flow
-status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-09-03T18:17:48.517Z"
+status: verifying
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-09-03T18:31:36.487Z"
 last_activity: 2026-09-03
 last_activity_desc: Phase 02 execution started
-state_head: edfa75f1efd09b4117c83e5d1c70d42298660acf
+state_head: 4bbe703bbf0ff5493c0d038e9c9c90798a3b7845
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-01)
 
 Phase: 02 (Session & Lobby Flow) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-03 — Phase 02 execution started
 
 Progress: [░░░░░░░░░░] 0% (Phase 01 of 6 complete)
@@ -80,6 +80,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 02 P01 | 35min | 2 tasks | 15 files |
+| Phase 02 P02 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Recent decisions affecting current work:
 - Phase 2 context (02-CONTEXT.md): short typable join code (not a full URL); resume via a personal link carrying the participant's token (not browser-storage-only); no host special role/flag; late joiners allowed at any time, no session lock; duplicate display names allowed within a session.
 - Phase 2 planning (02-01-PLAN.md/02-02-PLAN.md): `spring-boot-starter-validation` is NOT transitively available (confirmed absent from `runtimeClasspath`) — Plan 02-02 adds it explicitly. `SessionService.createSession()`'s join-code retry loop deliberately has no `@Transactional` of its own (uses plain `save()` per attempt, not `saveAndFlush()` inside a shared transaction) — PostgreSQL aborts the whole transaction after any failed statement, so a shared-transaction retry loop would break on the second attempt.
 - [Phase 02]: Spring Boot 4.1.1 modularized @AutoConfigureMockMvc into spring-boot-webmvc-test and autoconfigures a Jackson 3 (tools.jackson) ObjectMapper bean, not the classic com.fasterxml.jackson type
+- [Phase 02]: Phase 2 (02-02): spring-boot-starter-validation added explicitly as its own dependency line — Spring Boot 2.3+ no longer transitively pulls Bean Validation in from spring-boot-starter-web
+- [Phase 02]: Phase 2 (02-02): SESH-01/SESH-02/SESH-04 all closed — no custom exception handler needed, Spring Boot's default MethodArgumentNotValidException handling already returns 400
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-03T18:17:48.501Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-09-03T18:31:26.441Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
