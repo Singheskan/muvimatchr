@@ -10,16 +10,9 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- **Phase 2: Session & Lobby Flow** — planned and independently verified
-  (`02-01-PLAN.md`, `02-02-PLAN.md`), not yet executed. Wave 1 (`02-01`, tracer):
-  session creation, participant join with SecureRandom+SHA-256 token issuance, and
-  bearer-token resolve/resume, wired end-to-end against real Postgres. Wave 2
-  (`02-02`, depends on 02-01): Bean Validation on the join request, multi-participant
-  (3+) proof, join-code distinctness proof. Covers SESH-01 through SESH-05.
-  `gsd-plan-checker` ran independently (not just the planner's own self-report) and
-  returned VERIFICATION PASSED — 5/5 requirements covered, 5/5 CONTEXT.md decisions
-  honored, 0 blockers/warnings on both deterministic probes. Ready for
-  `/gsd-execute-phase 02`.
+- **Phase 2: Session & Lobby Flow** — Wave 1 (`02-01`, tracer) complete; Wave 2
+  (`02-02`, depends on 02-01) not yet executed. `02-02`: Bean Validation on the
+  join request, multi-participant (3+) proof, join-code distinctness proof.
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -62,9 +55,32 @@ the human-readable history across the whole project.
   orchestrator on `main` post-merge. All four ROADMAP Phase 1 success criteria confirmed;
   ROADMAP.md and STATE.md marked Phase 1 complete. Full plan SUMMARY at
   `.planning/phases/01-persistence-foundation/01-03-SUMMARY.md`.
+- **Plan 02-01 (tracer — session create/join/resume, this codebase's first
+  auth + REST layer) — complete.** Executed sequentially on `main` (a prior
+  worktree dispatch for this plan hit a stale-base mismatch, so this run was
+  degraded to sequential per #2649/#683). Built `V4__add_participant_token.sql`,
+  `TokenService` (SecureRandom 256-bit token, SHA-256 hash-at-rest),
+  `SessionService.createSession()` (DB-level join-code collision retry, no
+  shared `@Transactional` — see decision below), `ParticipantService.join()`,
+  `SessionController`/`ParticipantController` (`POST /api/sessions`,
+  `POST /{joinCode}/participants`, `GET /{sessionId}/participants/me`), and
+  `CurrentParticipantArgumentResolver`/`WebMvcConfig` (custom
+  `HandlerMethodArgumentResolver` standing in for Spring Security — this
+  codebase's first auth mechanism). `ParticipantControllerTest` (8 tests, real
+  MockMvc against real Postgres, no mocks) proves the whole path: unique join
+  codes, server-issued token distinct from name/id, hash-at-rest (64-char
+  SHA-256), 404 on unknown join code, bearer-token resume with no duplicate
+  row, 401 on missing/malformed/unrecognized token, 404 on cross-session
+  token. Task 2 done via TDD (RED `5a9f93e` → GREEN `edfa75f`). Hit and fixed
+  three Spring Boot 4.1.1 framework-version surprises mid-execution (see
+  Issues below). `./gradlew test`/`build` green throughout, including the
+  pre-existing Phase 1 suite. SESH-01, SESH-02, SESH-03, SESH-05 marked
+  complete in REQUIREMENTS.md (SESH-04, 3+ participants, is 02-02's job).
+  Full plan SUMMARY at
+  `.planning/phases/02-session-lobby-flow/02-01-SUMMARY.md`.
 
 ### Next
-- Execute Phase 2 (`/gsd-execute-phase 02`), starting with Wave 1 (`02-01-PLAN.md`).
+- Execute Phase 2 Wave 2 (`/gsd-execute-phase 02`, `02-02-PLAN.md`).
 
 ---
 
@@ -218,6 +234,42 @@ Also required updating two Phase 1 test files (`VoteRepositoryTest.kt`,
 `Participant(...)` without the new required `tokenHash` constructor argument that this
 phase adds — a compile-breaking ripple from making the token column `NOT NULL` with no
 default, caught during planning rather than left for the executor to discover.
+
+### 2026-09-03 — Plan 02-01 executed sequentially after a worktree stale-base mismatch; three Spring Boot 4.1.1 test-support surprises hit and fixed
+A prior isolated-worktree dispatch for Plan 02-01 hit a stale-base mismatch against
+`origin/HEAD`, so per the project's documented #2649/#683 auto-degrade policy this run
+executed sequentially on `main` instead. No worktree cleanup was needed (`git worktree
+list` showed only `main`).
+
+During Task 1, three framework-version issues surfaced that neither 02-RESEARCH.md nor
+02-PATTERNS.md could have anticipated (both predate hands-on compilation against this
+exact Boot 4.1.1 dependency graph):
+
+1. **The plan's claim that `RestartSurvivalTest.kt` already imports `java.util.UUID` was
+   wrong.** Only `VoteRepositoryTest.kt` did. Adding the required `tokenHash =
+   UUID.randomUUID().toString()` constructor arg without the import would not compile —
+   added the missing import (Rule 3).
+2. **`@AutoConfigureMockMvc` doesn't exist where the standard Spring Boot docs/examples
+   put it in this version.** Boot 4.1.1 modularized MockMvc test autoconfiguration out
+   of `spring-boot-test-autoconfigure` into a brand new `spring-boot-webmvc-test`
+   artifact, relocating the class to
+   `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`. Added the
+   dependency explicitly to `build.gradle.kts` (version auto-resolved via the existing
+   Spring Boot BOM).
+3. **Autowiring `com.fasterxml.jackson.databind.ObjectMapper` in a test threw
+   `NoSuchBeanDefinitionException`.** Boot 4.1.1's Jackson autoconfiguration registers a
+   Jackson 3 (`tools.jackson.databind.ObjectMapper`) bean by default — a different type
+   from the classic Jackson 2 `ObjectMapper` the project's pre-existing
+   `jackson-module-kotlin` dependency provides on the classpath. Switched the test to
+   autowire `tools.jackson.databind.ObjectMapper` instead.
+
+All three fixed inline as Rule 3 blockers (compile/runtime errors preventing task
+completion, not architectural changes), verified via `./gradlew test`/`build`, and
+documented in `02-01-SUMMARY.md`. Worth flagging for Phase 3+ planning: this project is
+on a genuinely bleeding-edge Spring Boot version, so any RESEARCH.md/PATTERNS.md code
+example involving Boot's test-support or Jackson auto-configuration should be treated as
+a *shape* reference, not copied verbatim — verify actual package/artifact names against
+the resolved classpath before trusting an import.
 
 ## Format for future entries
 
