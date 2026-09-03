@@ -7,9 +7,12 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.ObjectMapper
 
@@ -86,6 +89,80 @@ class ParticipantControllerTest : PostgresTestSupport() {
             post("/api/sessions/ZZZZZZ/participants")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"displayName":"Bob"}""")
+        )
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `me with a valid token returns the same participantId issued at join time`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+        val joinResponse = joinSession(joinCode, "Carol")
+        val token = joinResponse["token"] as String
+        val participantId = joinResponse["participantId"] as String
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/participants/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.participantId").value(participantId))
+    }
+
+    @Test
+    fun `me does not insert a new participant row on resume`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+        val joinResponse = joinSession(joinCode, "Dave")
+        val token = joinResponse["token"] as String
+
+        val countBeforeResume = participantRepository.count()
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/participants/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+
+        assertEquals(countBeforeResume, participantRepository.count())
+    }
+
+    @Test
+    fun `me with no Authorization header returns 401`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+
+        mockMvc.perform(get("/api/sessions/$sessionId/participants/me"))
+            .andExpect(status().isUnauthorized)
+    }
+
+    @Test
+    fun `me with an unrecognized bearer token returns 401`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/participants/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-real-token")
+        )
+            .andExpect(status().isUnauthorized)
+    }
+
+    @Test
+    fun `me with a valid token but a different session's sessionId returns 404`() {
+        val firstSession = createSession()
+        val firstJoinCode = firstSession["joinCode"] as String
+        val firstJoinResponse = joinSession(firstJoinCode, "Eve")
+        val firstToken = firstJoinResponse["token"] as String
+
+        val secondSession = createSession()
+        val secondSessionId = secondSession["sessionId"] as String
+
+        mockMvc.perform(
+            get("/api/sessions/$secondSessionId/participants/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $firstToken")
         )
             .andExpect(status().isNotFound)
     }
