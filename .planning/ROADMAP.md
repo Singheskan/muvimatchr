@@ -14,7 +14,7 @@ MuviMatchr is rebuilt as six horizontal layers rather than vertical feature slic
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Persistence Foundation** - Session/Participant/Vote schema is durable, constraint-enforced, and proven to survive a restart before anything is built on top of it
-- [ ] **Phase 2: Session & Lobby Flow** - Hosts can create sessions and participants can join, get an unguessable token, and resume later without losing votes
+- [x] **Phase 2: Session & Lobby Flow** - Hosts can create sessions and participants can join, get an unguessable token, and resume later without losing votes (completed 2026-09-03)
 - [ ] **Phase 3: TMDB Integration & Catalog Caching** - The movie deck is sourced from real TMDB data, filterable by genre and region-aware streaming availability, cached server-side, with the API key never reaching the frontend
 - [ ] **Phase 4: Vote Recording & Match Aggregation** - Votes are recorded idempotently and the "everyone finished" / "unanimous match" logic is computed correctly and race-free from live data
 - [ ] **Phase 5: Real-Time Notification Layer** - Connected participants get live status updates over WebSocket, with reconnects always reconciled against the server as source of truth
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
-| 2. Session & Lobby Flow | 2/2 | In Progress|  |
+| 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
 | 3. TMDB Integration & Catalog Caching | 0/TBD | Not started | - |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
