@@ -12,13 +12,12 @@ Two (or more) people with different tastes can independently pick movies they'd 
 
 ### Validated
 
-(None yet — this is a rebuild; nothing from the prior attempt is considered validated)
+- ✓ Host can create a session and get a shareable code/link — Phase 2
+- ✓ Participants join a session via code/link and pick a display name (no account/signup required) — Phase 2
+- ✓ Session supports 2+ participants (couple use case is primary, groups supported from v1) — Phase 2
 
 ### Active
 
-- [ ] Host can create a session and get a shareable code/link
-- [ ] Participants join a session via code/link and pick a display name (no account/signup required)
-- [ ] Session supports 2+ participants (couple use case is primary, groups supported from v1)
 - [ ] Movie deck can be filtered by genre
 - [ ] Movie deck can be filtered by streaming availability (which services a title is on)
 - [ ] Movie data (titles, posters, genres, streaming availability) comes from a real source (TMDB)
@@ -54,12 +53,14 @@ Two (or more) people with different tastes can independently pick movies they'd 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Rebuild rather than patch existing code | Vote aggregation was never finished and state model is in-memory-only; core data model needs to change anyway | — Pending |
-| Keep Kotlin/Spring Boot, add SPA frontend | User knows the backend stack; wants a real frontend instead of Thymeleaf for a better swipe UX | — Pending |
-| TMDB for movie data | Real titles/posters/genres/streaming availability instead of a placeholder list | — Pending |
-| Async voting with live waiting screen | Matches actual usage pattern (people swipe on their own time), while still feeling live when others are online | — Pending |
-| Group sessions from v1, single-best-match result for v1 | Support couples and friend groups without over-scoping the results UI; ranked list deferred to v2 | — Pending |
-| No accounts — code/link + display name | Keeps friction low for a casual "watch party" tool | — Pending |
+| Rebuild rather than patch existing code | Vote aggregation was never finished and state model is in-memory-only; core data model needs to change anyway | Confirmed — Phase 1 (persistence) and Phase 2 (session/lobby) built clean, tested from scratch |
+| Keep Kotlin/Spring Boot, add SPA frontend | User knows the backend stack; wants a real frontend instead of Thymeleaf for a better swipe UX | — Pending (frontend is Phase 6) |
+| TMDB for movie data | Real titles/posters/genres/streaming availability instead of a placeholder list | — Pending (Phase 3) |
+| Async voting with live waiting screen | Matches actual usage pattern (people swipe on their own time), while still feeling live when others are online | — Pending (Phase 4/5) |
+| Group sessions from v1, single-best-match result for v1 | Support couples and friend groups without over-scoping the results UI; ranked list deferred to v2 | Confirmed (group support) — Phase 2 proves 3+ distinct participants can join one session, not hardcoded to 2 |
+| No accounts — code/link + display name | Keeps friction low for a casual "watch party" tool | Confirmed — Phase 2 ships join-code + display-name + server-issued bearer token, no account/signup |
+| Server-issued 256-bit token, SHA-256 hash-at-rest, no session/JWT machinery | Simplest scheme that still prevents un-authorized impersonation of a participant; avoids pulling in Spring Security for a single-token-per-participant model | Shipped — Phase 2 (`TokenService`, `CurrentParticipantArgumentResolver`) |
+| Join-code collision retry uses per-attempt `save()`, no shared `@Transactional` | Postgres aborts the entire transaction after one failed statement, so a shared-transaction retry would break on the second collision attempt | Shipped — Phase 2 (`SessionService.createSession()`) |
 
 ## Evolution
 
@@ -79,4 +80,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-01 after initialization*
+*Last updated: 2026-09-03 after Phase 2*

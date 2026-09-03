@@ -4,26 +4,26 @@ current_phase: 3
 current_phase_name: TMDB Integration & Catalog Caching
 status: planning
 stopped_at: Phase 02 complete, ready to plan Phase 3
-last_updated: "2026-09-03T18:49:37.415Z"
+last_updated: "2026-09-03T18:51:04.779Z"
 last_activity: 2026-09-03
 last_activity_desc: Phase 02 complete, transitioned to Phase 3
-state_head: 6973c7184ea2371b96c0c76655bfb039c5f41949
+state_head: 5e209bb7a245e243c9fef303723832ab5453e49d
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
   completed_plans: 5
-  percent: 17
+  percent: 33
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-01)
+See: .planning/PROJECT.md (updated 2026-09-03)
 
 **Core value:** Two (or more) people with different tastes can independently pick movies they'd watch and get a fast, confident answer to "what do we actually both want to watch tonight" — without the back-and-forth debate.
-**Current focus:** Phase 02 — Session & Lobby Flow
+**Current focus:** Phase 3 — TMDB Integration & Catalog Caching
 
 ## Current Position
 
@@ -32,7 +32,7 @@ Plan: Not started
 Status: Ready to plan
 Last activity: 2026-09-03 — Phase 02 complete, transitioned to Phase 3
 
-Progress: [░░░░░░░░░░] 0% (Phase 01 of 6 complete)
+Progress: [███░░░░░░░] 33% (Phase 02 of 6 complete)
 
 ## Phase 1 Verification Summary
 
@@ -109,6 +109,8 @@ None yet.
 - Phase 5 planning should review current `@stomp/stompjs` v7 reconnect/resubscribe semantics before implementation (avoid duplicate-message-on-reconnect).
 - Phase 3 planning should re-verify current TMDB rate-limit and image-CDN connection-limit numbers against official docs (research flagged these as low-confidence, forum-sourced).
 - Late-joiner handling: RESOLVED for Phase 2 (see Recent Decisions below — join anytime, no lock). Abandoned-participant handling (someone who joins but never finishes voting) is still undecided and will need a decision during Phase 4 planning (match/aggregation logic must define what "everyone finished" means when a participant never returns).
+- [Phase 02 code review, advisory/non-blocking — see 02-REVIEW.md]: `V4__add_participant_token.sql` adds `token_hash NOT NULL` with no `DEFAULT` (fine now, fragile if any environment ever seeds participant rows before this migration runs); join-code lookup is case-sensitive with no normalization (a lowercased valid code 404s); no rate limiting on the join endpoint (the 6-char join code, ~1.07B combinations, is the sole access control for a session); the raw bearer token is embedded in the `resumeUrl` query string (already an accepted risk in the phase's threat model, re-flagged since URL-embedded secrets leak via history/referrer/logs). None block Phase 2; worth revisiting before a public deploy (Phase 6+ hosting).
+- [Phase 02 verification]: ROADMAP Phase 2 success criterion 4's vote-attribution clause ("votes they already cast are still attributed to them") is an intentional deferral to Phase 4 — no voting exists yet (out of scope per 02-CONTEXT.md). Phase 2 proves the stable participant identity Phase 4's participant-keyed votes will depend on; this is not a gap.
 
 ## Deferred Items
 
@@ -120,6 +122,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-03T18:31:26.441Z
-Stopped at: Phase 02 complete, ready to plan Phase 3
+Last session: 2026-09-03T19:00:00.000Z
+Stopped at: Phase 02 complete and verified (9/9 must-haves, 20/20 tests), transitioned to Phase 3
 Resume file: None
