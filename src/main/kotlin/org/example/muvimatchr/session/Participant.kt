@@ -22,6 +22,9 @@ class Participant(
     @Column(name = "display_name", nullable = false, length = 100)
     val displayName: String,
 
+    @Column(name = "token_hash", nullable = false, length = 64)
+    val tokenHash: String,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 ) {

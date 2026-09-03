@@ -30,7 +30,9 @@ class VoteRepositoryTest : PostgresTestSupport() {
     private fun newParticipant(): Participant {
         val joinCode = UUID.randomUUID().toString().take(16)
         val session = sessionRepository.save(Session(joinCode = joinCode))
-        return participantRepository.save(Participant(session = session, displayName = "Voter"))
+        return participantRepository.save(
+            Participant(session = session, displayName = "Voter", tokenHash = UUID.randomUUID().toString())
+        )
     }
 
     private fun voteCount(sessionId: UUID, participantId: UUID, movieId: Long): Int =

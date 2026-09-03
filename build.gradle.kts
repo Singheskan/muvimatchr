@@ -28,6 +28,7 @@ dependencies {
 	developmentOnly("org.springframework.boot:spring-boot-devtools")  // Hot reload for development
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")  // Testing framework
+	testImplementation("org.springframework.boot:spring-boot-webmvc-test")  // MockMvc test autoconfiguration (Boot 4 modularized this out of spring-boot-test-autoconfigure)
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")  // JUnit 5 support for Kotlin
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")  // JUnit 5 runtime support
 

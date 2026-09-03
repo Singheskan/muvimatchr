@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
+import java.util.UUID
 
 @Testcontainers
 class RestartSurvivalTest {
@@ -62,7 +63,7 @@ class RestartSurvivalTest {
         val sessionId = session.id!!
 
         val participant = context1.getBean(ParticipantRepository::class.java)
-            .save(Participant(session = session, displayName = "Restart Tester"))
+            .save(Participant(session = session, displayName = "Restart Tester", tokenHash = UUID.randomUUID().toString()))
         val participantId = participant.id!!
 
         val vote = context1.getBean(VoteRepository::class.java)
