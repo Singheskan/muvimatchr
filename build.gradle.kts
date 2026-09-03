@@ -22,6 +22,7 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")  // Thymeleaf template engine
 	implementation("org.springframework.boot:spring-boot-starter-web")  // Spring MVC for web development
+	implementation("org.springframework.boot:spring-boot-starter-validation")  // Jakarta Bean Validation (Hibernate Validator) — not transitively pulled in by spring-boot-starter-web since Spring Boot 2.3
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")  // Kotlin module for Jackson (JSON parsing)
 	implementation("org.jetbrains.kotlin:kotlin-reflect")  // Kotlin reflection support
 

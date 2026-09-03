@@ -151,6 +151,49 @@ class ParticipantControllerTest : PostgresTestSupport() {
     }
 
     @Test
+    fun `joining with a blank display name returns 400 and does not persist a participant`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val countBefore = participantRepository.count()
+
+        mockMvc.perform(
+            post("/api/sessions/$joinCode/participants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"displayName":""}""")
+        )
+            .andExpect(status().isBadRequest)
+
+        assertEquals(countBefore, participantRepository.count())
+    }
+
+    @Test
+    fun `joining with a 101-character display name returns 400 and does not persist a participant`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val countBefore = participantRepository.count()
+        val tooLongName = "A".repeat(101)
+
+        mockMvc.perform(
+            post("/api/sessions/$joinCode/participants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"displayName":"$tooLongName"}""")
+        )
+            .andExpect(status().isBadRequest)
+
+        assertEquals(countBefore, participantRepository.count())
+    }
+
+    @Test
+    fun `joining with a valid display name still returns 201 after adding validation`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+
+        val joinResponse = joinSession(joinCode, "Alice")
+
+        assertEquals("Alice", joinResponse["displayName"])
+    }
+
+    @Test
     fun `me with a valid token but a different session's sessionId returns 404`() {
         val firstSession = createSession()
         val firstJoinCode = firstSession["joinCode"] as String

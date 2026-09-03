@@ -1,5 +1,8 @@
 package org.example.muvimatchr.session
 
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.example.muvimatchr.auth.CurrentParticipant
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -17,7 +20,7 @@ import java.util.UUID
 class ParticipantController(private val participantService: ParticipantService) {
 
     @PostMapping("/{joinCode}/participants")
-    fun join(@PathVariable joinCode: String, @RequestBody request: JoinRequest): ResponseEntity<JoinResponse> {
+    fun join(@PathVariable joinCode: String, @Valid @RequestBody request: JoinRequest): ResponseEntity<JoinResponse> {
         val result = participantService.join(joinCode, request.displayName)
         val participant = result.participant
         val resumeUrl = "/session/${participant.session.id}?token=${result.rawToken}"
@@ -41,7 +44,11 @@ class ParticipantController(private val participantService: ParticipantService) 
     }
 }
 
-data class JoinRequest(val displayName: String)
+data class JoinRequest(
+    @field:NotBlank
+    @field:Size(max = 100)
+    val displayName: String,
+)
 
 data class JoinResponse(
     val participantId: UUID,
