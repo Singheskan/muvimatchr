@@ -10,7 +10,7 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-(none — Phase 2 complete, Phase 3 not yet started)
+- Phase 3 (TMDB Integration & Catalog Caching) — context gathered, ready to plan.
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -108,9 +108,17 @@ the human-readable history across the whole project.
   (3 requirements moved Active → Validated, 2 new implementation decisions
   logged, Key Decisions outcomes filled in for entries this phase confirmed).
 
+- **Phase 3 context gathered** (`03-CONTEXT.md`, `/gsd-discuss-phase 3`). Four areas
+  discussed: region source (host sets an optional `Session.region`, default Germany/DE,
+  editable later by any participant — no host/creator role introduced, consistent with
+  Phase 2 D-03), deck ranking (TMDB popularity/rating sort only, no personalization —
+  explicitly re-confirmed PROJECT.md's ML-out-of-scope call rather than reopening it),
+  TMDB outage behavior (retry with backoff, then serve stale cache, error only if nothing
+  cached), and deck size/cache scope (~20-movie deck per filter combo, "not enough movies"
+  response under 5 matches, cache keyed by filter combo shared across sessions, ~6h TTL).
+
 ### Next
-- Discuss/plan Phase 3 (TMDB Integration & Catalog Caching) — `/gsd-discuss-phase 3`
-  or `/gsd-plan-phase 3`. No CONTEXT.md exists yet for Phase 3.
+- Plan Phase 3 (TMDB Integration & Catalog Caching) — `/gsd-plan-phase 3`.
 
 ---
 
@@ -339,6 +347,19 @@ not a gap.
 Phase 2 marked complete (`phase.complete`); PROJECT.md evolved (3 requirements Active →
 Validated, Key Decisions outcomes filled in, 2 new implementation decisions logged).
 Next: discuss/plan Phase 3 (TMDB Integration & Catalog Caching) — no CONTEXT.md yet.
+
+### 2026-09-03 — `state.record-session` silently corrupted the progress counter
+Running `gsd_run query state.record-session --stopped-at "Phase 3 context gathered" ...`
+at the end of the Phase 3 discuss session rewrote `.planning/STATE.md`'s
+`progress.completed_phases` from 2 to 1 and `progress.percent` from 33 to 17 — even
+though `ROADMAP.md` still correctly shows Phase 1 and Phase 2 both complete. Nothing in
+the discuss-phase workflow instructs the tool to touch that field for a context-only
+session; this looks like a bug in the tool's progress-recomputation logic (possibly
+conflating "current phase's own plan-completion count" with "phases complete count").
+**Resolution:** manually corrected `completed_phases`/`percent` back to 2/33 and
+committed the fix (`12f059a`) immediately after the tool's own commit (`bc73fbb`).
+**Not yet fixed upstream** — worth a closer look if `state.record-session` is run again
+and the counter drifts a second time; may need to file/check for a gsd-core issue.
 
 ## Format for future entries
 
