@@ -10,9 +10,7 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- **Phase 2: Session & Lobby Flow** — Wave 1 (`02-01`, tracer) complete; Wave 2
-  (`02-02`, depends on 02-01) not yet executed. `02-02`: Bean Validation on the
-  join request, multi-participant (3+) proof, join-code distinctness proof.
+(none — Phase 2 complete, Phase 3 not yet started)
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -78,9 +76,41 @@ the human-readable history across the whole project.
   complete in REQUIREMENTS.md (SESH-04, 3+ participants, is 02-02's job).
   Full plan SUMMARY at
   `.planning/phases/02-session-lobby-flow/02-01-SUMMARY.md`.
+- **Plan 02-02 (Bean Validation + multi-participant/join-code-distinctness
+  hardening) — complete. Phase 2 done.** Executed sequentially on `main`
+  (same stale-base worktree condition as 02-01, pre-emptively skipped straight
+  to sequential dispatch rather than re-attempting a doomed worktree). Added
+  `spring-boot-starter-validation` explicitly (confirmed absent transitively
+  since Spring Boot 2.3), `@field:NotBlank`/`@field:Size(max=100)` +
+  `@Valid` on the join request. Extended `ParticipantControllerTest` to 12
+  tests (validation cases + a 3-distinct-participant proof with a
+  `JdbcTemplate` row-count assertion) and added `SessionServiceTest` (2
+  tests) proving join-code distinctness/shape. `./gradlew test` green 20/20
+  across Phase 1 + Phase 2, no regressions. All five SESH-01..05 requirements
+  now complete. Full plan SUMMARY at
+  `.planning/phases/02-session-lobby-flow/02-02-SUMMARY.md`.
+- **Phase 2 code review** (`02-REVIEW.md`, standard depth, focused on the
+  codebase's first auth/crypto code) — 0 Critical, 4 Warning, 7 Info. Warnings
+  are advisory/non-blocking: `V4` migration's `NOT NULL` column has no
+  `DEFAULT`; join-code lookup is case-sensitive (no normalization); no rate
+  limiting on the join endpoint; raw bearer token in `resumeUrl` query string
+  (already an accepted risk in the phase's threat model). SecureRandom token
+  issuance, SHA-256 hash-at-rest, hash-then-compare resolution, and the
+  no-`@Transactional` retry pattern were all confirmed correctly implemented.
+- **Phase 2 goal verification** (`02-VERIFICATION.md`) — PASSED, 9/9
+  must-haves. Independently re-ran the full test suite (not trusted from
+  SUMMARY.md) via JUnit XML reports: 20/20 green. All 5 requirements traced to
+  passing tests. One documented, intentional deferral (not a gap): the
+  "votes still attributed on resume" clause of success criterion 4 can't be
+  verified until voting exists (Phase 4) — Phase 2 only had to prove stable
+  participant identity, which it does.
+- **Phase 2 marked complete** in ROADMAP.md/STATE.md; PROJECT.md evolved
+  (3 requirements moved Active → Validated, 2 new implementation decisions
+  logged, Key Decisions outcomes filled in for entries this phase confirmed).
 
 ### Next
-- Execute Phase 2 Wave 2 (`/gsd-execute-phase 02`, `02-02-PLAN.md`).
+- Discuss/plan Phase 3 (TMDB Integration & Catalog Caching) — `/gsd-discuss-phase 3`
+  or `/gsd-plan-phase 3`. No CONTEXT.md exists yet for Phase 3.
 
 ---
 
@@ -270,6 +300,45 @@ on a genuinely bleeding-edge Spring Boot version, so any RESEARCH.md/PATTERNS.md
 example involving Boot's test-support or Jackson auto-configuration should be treated as
 a *shape* reference, not copied verbatim — verify actual package/artifact names against
 the resolved classpath before trusting an import.
+
+### 2026-09-03 — Phase 2 fully executed, reviewed, verified, and closed out in one session
+Ran `/gsd-execute-phase 02` end-to-end: Plan 02-01 (already logged above), then Plan
+02-02, then the phase-close gates (code review, goal verification, `phase.complete`,
+PROJECT.md/STATE.md evolution).
+
+**Worktree isolation stayed broken for the whole session.** Local `main` was already 8
+commits ahead of `origin/main` before this session started (nothing here has been pushed
+recently), so Claude Code's `isolation="worktree"` — which forks from `origin/HEAD`, not
+live local HEAD — hit the same stale-base mismatch for every plan this session, not just
+02-01. Rather than re-attempt a worktree dispatch for 02-02 that was certain to fail the
+same way, it was dispatched directly in sequential mode (re-recording the
+`dispatch-isolation` sentinel scoped to that plan first, since the phase-level sentinel
+still said `harness-worktree` and the isolation guard rejects a non-worktree dispatch
+against a stale sentinel). **This will keep happening on every phase until `main` is
+pushed to `origin`** — worth doing before the next multi-plan phase if parallel
+worktree execution is wanted back.
+
+**Plan 02-02** added `spring-boot-starter-validation` explicitly, Bean Validation on the
+join request, and closed the phase's last two proof gaps (3+ participants, join-code
+distinctness). No deviations, no checkpoints. `./gradlew test` 20/20 green.
+
+**Code review** (`02-REVIEW.md`, standard depth) found 0 Critical / 4 Warning / 7 Info —
+the auth/crypto core (SecureRandom + SHA-256 hash-at-rest + hash-then-compare resolution)
+was confirmed sound. Warnings are all forward-looking hardening (case-sensitive join-code
+lookup, no rate limiting on join, no DEFAULT on the new NOT NULL migration column, token
+in resumeUrl query string) rather than defects in what Phase 2 actually needed to prove —
+none blocked completion, all carried to STATE.md Blockers/Concerns for before-public-launch
+attention.
+
+**Goal verification** (`02-VERIFICATION.md`) independently re-ran the full test suite
+from JUnit XML output rather than trusting SUMMARY.md's claimed pass count, and passed
+9/9 must-haves. One clause of ROADMAP success criterion 4 (vote-attribution-on-resume)
+is explicitly deferred to Phase 4 since no voting exists yet — documented as intentional,
+not a gap.
+
+Phase 2 marked complete (`phase.complete`); PROJECT.md evolved (3 requirements Active →
+Validated, Key Decisions outcomes filled in, 2 new implementation decisions logged).
+Next: discuss/plan Phase 3 (TMDB Integration & Catalog Caching) — no CONTEXT.md yet.
 
 ## Format for future entries
 
