@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -27,6 +28,9 @@ class ParticipantControllerTest : PostgresTestSupport() {
 
     @Autowired
     lateinit var participantRepository: ParticipantRepository
+
+    @Autowired
+    lateinit var jdbcTemplate: JdbcTemplate
 
     private fun createSession(): Map<String, Any> {
         val response = mockMvc.perform(post("/api/sessions"))
@@ -191,6 +195,29 @@ class ParticipantControllerTest : PostgresTestSupport() {
         val joinResponse = joinSession(joinCode, "Alice")
 
         assertEquals("Alice", joinResponse["displayName"])
+    }
+
+    @Test
+    fun `three distinct participants can join the same session with distinct ids and tokens`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+
+        val alice = joinSession(joinCode, "Alice")
+        val bob = joinSession(joinCode, "Bob")
+        val carol = joinSession(joinCode, "Carol")
+
+        val participantIds = setOf(alice["participantId"], bob["participantId"], carol["participantId"])
+        val tokens = setOf(alice["token"], bob["token"], carol["token"])
+        assertEquals(3, participantIds.size)
+        assertEquals(3, tokens.size)
+
+        val rowCount = jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM participant WHERE session_id = ?",
+            Int::class.java,
+            java.util.UUID.fromString(sessionId),
+        )
+        assertEquals(3, rowCount)
     }
 
     @Test
