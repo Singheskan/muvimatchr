@@ -10,7 +10,7 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Phase 3 (TMDB Integration & Catalog Caching) — context gathered, ready to plan.
+- Phase 4 (Vote Recording & Match Aggregation) — context gathered, ready to plan.
 
 ### Done
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
@@ -117,8 +117,27 @@ the human-readable history across the whole project.
   cached), and deck size/cache scope (~20-movie deck per filter combo, "not enough movies"
   response under 5 matches, cache keyed by filter combo shared across sessions, ~6h TTL).
 
+- **Phase 3 (TMDB Integration & Catalog Caching) complete** — executed end-to-end
+  (5 waves), code-reviewed (4 Critical + 4 Warning, all fixed and re-verified),
+  goal-verified (5/5 automated criteria), and live-TMDB UAT closed out
+  (4/4 human-check items passed, 2 manual-only resolved live). See prior Issues
+  Log entries (2026-09-04) for the full execution/review/UAT narrative.
+- **Phase 4 context gathered** (`04-CONTEXT.md`, `/gsd-discuss-phase 4`). Three areas
+  resolved: deck stability (the specific movie list is pinned per session on first
+  fetch, with region/provider/genre all locked together at that same moment — genre
+  must move from a per-request query param to a session-level field to support this;
+  fully resolves Phase 3's deferred "filters change after votes exist" question, since
+  there's no window left in which that can happen), abandoned participants (1-minute
+  inactivity timeout since last vote/join — short because the actual deck has no
+  trailers/synopsis to linger over — drops the idle participant from both the
+  "everyone finished" count *and* the unanimity/match requirement while idle, live and
+  reversible on their next vote, not a permanent kick), and vote editing (no
+  revise/undo in v1 at all, consistent with the existing `VOTE-06` v2 deferral — the
+  upsert mechanism stays purely as an idempotency safeguard, not a user-facing edit
+  path).
+
 ### Next
-- Plan Phase 3 (TMDB Integration & Catalog Caching) — `/gsd-plan-phase 3`.
+- Plan Phase 4 (Vote Recording & Match Aggregation) — `/gsd-plan-phase 4`.
 
 ---
 
@@ -424,6 +443,17 @@ strength — corrected both the checkbox and the traceability table row.
 
 **Next:** get a `TMDB_API_TOKEN` into this dev environment, then run
 `/gsd-verify-work 3` to close out the 4 pending UAT items and complete Phase 3.
+
+### 2026-09-04 — `state.record-session` progress-counter drift recurred a third time
+Same bug logged 2026-09-03 (Phase 3 context session) fired again after the Phase 4
+context session: `progress.completed_phases` dropped from 3 to 2 (and `percent` from
+50 to 33) in `STATE.md`'s frontmatter even though nothing regressed — Phase 3 is still
+complete. `state.json` (the newer state artifact) was correct both times; only
+`STATE.md`'s YAML frontmatter drifts. **Resolution:** manually corrected back to 3/50
+and committed (`dcd9c25`), same as the prior occurrence. **Still not fixed upstream**
+— three occurrences now (2026-09-03 Phase 3 context, and twice more implied by
+STATE.md's own Blockers note before this). Worth filing/checking a gsd-core issue
+rather than continuing to patch it by hand every phase transition.
 
 ## Format for future entries
 
