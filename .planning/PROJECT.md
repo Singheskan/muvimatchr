@@ -15,12 +15,12 @@ Two (or more) people with different tastes can independently pick movies they'd 
 - ✓ Host can create a session and get a shareable code/link — Phase 2
 - ✓ Participants join a session via code/link and pick a display name (no account/signup required) — Phase 2
 - ✓ Session supports 2+ participants (couple use case is primary, groups supported from v1) — Phase 2
+- ✓ Movie data (titles, posters, genres, streaming availability) comes from a real source (TMDB) — Phase 3
+- ✓ Movie deck can be filtered by genre — Phase 3
+- ✓ Movie deck can be filtered by streaming availability (which services a title is on) — Phase 3
 
 ### Active
 
-- [ ] Movie deck can be filtered by genre
-- [ ] Movie deck can be filtered by streaming availability (which services a title is on)
-- [ ] Movie data (titles, posters, genres, streaming availability) comes from a real source (TMDB)
 - [ ] Participant can swipe left (pass) / right (like) through the deck
 - [ ] Voting is async — a participant can leave and resume; progress and votes persist
 - [ ] Participant who finishes early sees a live-updating "waiting on N people" screen (via WebSocket), not a static page they must refresh
@@ -55,8 +55,11 @@ Two (or more) people with different tastes can independently pick movies they'd 
 |----------|-----------|---------|
 | Rebuild rather than patch existing code | Vote aggregation was never finished and state model is in-memory-only; core data model needs to change anyway | Confirmed — Phase 1 (persistence) and Phase 2 (session/lobby) built clean, tested from scratch |
 | Keep Kotlin/Spring Boot, add SPA frontend | User knows the backend stack; wants a real frontend instead of Thymeleaf for a better swipe UX | — Pending (frontend is Phase 6) |
-| TMDB for movie data | Real titles/posters/genres/streaming availability instead of a placeholder list | — Pending (Phase 3) |
+| TMDB for movie data | Real titles/posters/genres/streaming availability instead of a placeholder list | Shipped — Phase 3 (`MovieCatalogClient`/`MovieCatalogService`), verified against the live TMDB API, not just mocked tests |
 | Async voting with live waiting screen | Matches actual usage pattern (people swipe on their own time), while still feeling live when others are online | — Pending (Phase 4/5) |
+| Server-side TTL cache for TMDB responses, keyed by filter combination | Bounds outbound TMDB call volume regardless of caller volume; TMDB rate limits are per-app, not per-user | Shipped — Phase 3 (`deck_cache_entry`, 6h TTL deck / 168h TTL reference data), proven via request-count-delta tests |
+| Retry-then-stale-then-503 degradation ladder for TMDB outages | A transient TMDB outage shouldn't turn into a hard failure if a usable (if slightly stale) cached deck already exists | Shipped — Phase 3 (`MovieCatalogService.getDeck`), live-verified against a genuine connection-refused failure (retry engaged, correct stale-serve and 503-no-cache outcomes) |
+| Merge flatrate/rent/buy/ads into one "where to watch" list, no monetization-type filter sent to TMDB | App doesn't distinguish subscription from rental anywhere in the UI; sending the scoping param would silently narrow results to TMDB's undocumented flatrate-only default | Confirmed — Phase 3, live-verified against TMDB that omitting the param returns the broadest match |
 | Group sessions from v1, single-best-match result for v1 | Support couples and friend groups without over-scoping the results UI; ranked list deferred to v2 | Confirmed (group support) — Phase 2 proves 3+ distinct participants can join one session, not hardcoded to 2 |
 | No accounts — code/link + display name | Keeps friction low for a casual "watch party" tool | Confirmed — Phase 2 ships join-code + display-name + server-issued bearer token, no account/signup |
 | Server-issued 256-bit token, SHA-256 hash-at-rest, no session/JWT machinery | Simplest scheme that still prevents un-authorized impersonation of a participant; avoids pulling in Spring Security for a single-token-per-participant model | Shipped — Phase 2 (`TokenService`, `CurrentParticipantArgumentResolver`) |
@@ -80,4 +83,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-03 after Phase 2*
+*Last updated: 2026-09-04 after Phase 3*
