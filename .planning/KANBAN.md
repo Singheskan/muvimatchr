@@ -361,6 +361,70 @@ committed the fix (`12f059a`) immediately after the tool's own commit (`bc73fbb`
 **Not yet fixed upstream** — worth a closer look if `state.record-session` is run again
 and the counter drifts a second time; may need to file/check for a gsd-core issue.
 
+### 2026-09-04 — Phase 3 (TMDB Integration & Catalog Caching) executed end-to-end, code-reviewed, fixed, and verified
+
+Ran `/gsd-execute-phase 03` through all 5 waves (tracer-first, strictly sequential —
+each wave is a single plan depending on the previous): 03-01 tracer slice (TMDB
+WebClient → cache → endpoint), 03-02 session region/provider filter state, 03-03
+cached genre/watch-provider reference catalogs, 03-04 provider filtering + per-movie
+availability, 03-05 resilience (TMDB-unreachable degradation ladder, sparse-result
+handling). Each wave dispatched as a `gsd-executor` subagent in a Claude Code
+`isolation="worktree"` worktree, merged via `worktree.cleanup-wave`, then a full
+`./gradlew build` gate before advancing.
+
+**Worktree isolation broke again on Wave 2 for exactly the reason logged 2026-09-03:**
+local `main` had been pushed once at the start of the session but not after Wave 1's
+merge, so Claude Code's `isolation="worktree"` (forks from `origin/HEAD`, not live
+local HEAD) created Wave 2's worktree from a stale base — the executor's own
+`<worktree_branch_check>` guard correctly caught the mismatch and halted cleanly (exit
+42, zero commits, harness auto-removed the empty worktree). **Fix applied this
+session:** `git push origin main` after every wave's merge, not just once at the
+start. This kept all of Waves 2-5 on the fast worktree-isolation path. Confirms the
+2026-09-03 note was right — this needs to become standing practice for any multi-wave
+phase, not a one-off before the first dispatch.
+
+**Local dev environment needed three env vars that aren't in any project file:**
+`JAVA_HOME` pinned to Corretto 21 (system default is JDK 25; the Gradle daemon itself
+fails to start under 25, not just the project's toolchain target), `DOCKER_HOST`
+pointed at Colima's non-standard socket path (`~/.colima/default/docker.sock` — the
+orchestrator's non-interactive shell doesn't inherit the interactive shell's Colima
+env hook), and `TESTCONTAINERS_RYUK_DISABLED=true` (Ryuk's reaper container fails to
+start under Colima on this machine). None of this blocked the executor subagents
+(their own shell context apparently already had a working setup) — only the
+orchestrator's own `./gradlew build` gate calls between waves needed it. Worth adding
+a `gradle.properties` / documented dev-setup note if this keeps recurring.
+
+**Code review found 4 Critical + 4 Warning** (`03-REVIEW.md`, standard depth, 37
+files) — all real bugs, not stylistic: an unbounded provider-id list could overflow
+both the deck cache key's `VARCHAR(128)` column and session's `VARCHAR(255)` column,
+the latter silently misdiagnosed as a join-code collision and retried 10 times; the
+watch-providers region param had no format validation; and — most notably — Wave 5's
+own retry/degradation ladder (the whole point of that wave) only matched
+`WebClientResponseException`, so a genuine connection-level failure (refused,
+timeout, DNS) bypassed the stale-fallback/503 path entirely, with zero test coverage
+of that scenario. Ran `/gsd-code-review 03 --fix` (critical_warning scope) — all 8
+fixed and independently re-verified present in the codebase (not just claimed) by the
+verifier agent afterward. One retry mid-session: the first `--fix` dispatch hit an
+account-wide session usage limit after only creating its worktree (zero edits) —
+cleanly recoverable by removing the empty worktree/branch and re-dispatching once the
+reset time passed.
+
+**Goal verification: 5/5 automated ROADMAP criteria pass, phase left at `human_needed`**
+(not `passed`) — 4 items (live-TMDB "real data" confirmation, live sparse-filter
+behavior, TMDB's undocumented omitted-parameter default for monetization types, and
+CR-04's connectivity-failure retry path) all require a real `TMDB_API_TOKEN`, absent
+on this dev machine. These were already open items in `WINDOWS.md` from earlier
+plans' own `<human-check>` blocks, not new gaps. Per protocol, phase was **not**
+marked complete — `03-UAT.md` was created from `03-VERIFICATION.md`'s
+`human_verification` list and committed; `/gsd-verify-work 3` will walk through the 4
+live-API checks and auto-transition the phase to complete once they pass. Also fixed
+a small doc-staleness gap the verifier flagged: `REQUIREMENTS.md` had CTLG-05 as
+unchecked/"Pending" while CTLG-01–04 showed "Complete" despite equivalent evidence
+strength — corrected both the checkbox and the traceability table row.
+
+**Next:** get a `TMDB_API_TOKEN` into this dev environment, then run
+`/gsd-verify-work 3` to close out the 4 pending UAT items and complete Phase 3.
+
 ## Format for future entries
 
 ```
