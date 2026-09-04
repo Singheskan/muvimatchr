@@ -21,7 +21,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CTLG-02**: Participant can filter the deck by genre
 - [x] **CTLG-03**: Participant can filter the deck by streaming availability (region-aware)
 - [x] **CTLG-04**: TMDB responses are cached server-side (not re-fetched per deck load)
-- [ ] **CTLG-05**: TMDB API key never reaches the frontend (backend-proxied)
+- [x] **CTLG-05**: TMDB API key never reaches the frontend (backend-proxied)
 
 ### Voting & Matching
 
@@ -88,7 +88,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CTLG-02 | Phase 3 | Complete |
 | CTLG-03 | Phase 3 | Complete |
 | CTLG-04 | Phase 3 | Complete |
-| CTLG-05 | Phase 3 | Pending |
+| CTLG-05 | Phase 3 | Complete |
 | VOTE-01 | Phase 4 | Pending |
 | VOTE-02 | Phase 4 | Pending |
 | VOTE-03 | Phase 4 | Pending |
