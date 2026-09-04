@@ -33,7 +33,7 @@ class DeckController(
         if (participant.session.id != sessionId) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "No such participant in this session")
         }
-        sessionRepository.findById(sessionId).orElseThrow {
+        val session = sessionRepository.findById(sessionId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "No such session")
         }
 
@@ -42,9 +42,13 @@ class DeckController(
         // genre is null.
         catalogReferenceService.requireKnownGenre(genre)
 
-        // This plan sources no provider or region; Plan 03-04 replaces those two arguments with
-        // the session's stored selection.
-        val result = movieCatalogService.getDeck(genre, emptyList(), null)
+        // Region and provider selection come only from the session row -- never from a request
+        // parameter. This is what makes the filter a group-level decision: two participants of
+        // the same session always get the same filtering, because there is no per-client value
+        // for either field to disagree about. Do not add a convenience @RequestParam for either
+        // one; that would quietly reintroduce per-client divergence this endpoint is built to
+        // prevent.
+        val result = movieCatalogService.getDeck(genre, session.providerIds, session.region)
 
         return DeckResponse(
             sessionId = sessionId,
