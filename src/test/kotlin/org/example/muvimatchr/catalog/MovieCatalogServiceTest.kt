@@ -5,13 +5,16 @@ import mockwebserver3.MockResponse
 import mockwebserver3.RecordedRequest
 import org.example.muvimatchr.support.TmdbMockServerSupport
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.web.server.ResponseStatusException
 import java.sql.Timestamp
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -231,6 +234,95 @@ class MovieCatalogServiceTest : TmdbMockServerSupport() {
                 // discard
             }
         }
+    }
+
+    @Test
+    fun `a fresh cached row is served with stale false, distinguishing a normal cache hit from a degraded one`() {
+        enqueueJson(SMALL_DISCOVER_FIXTURE)
+        movieCatalogService.getDeck(28, emptyList(), null)
+
+        val result = movieCatalogService.getDeck(28, emptyList(), null)
+
+        assertFalse(result.stale, "a fresh cache hit must not be marked stale")
+    }
+
+    @Test
+    fun `an upstream outage with a past-TTL cached row serves that row's movies marked stale after retries are exhausted`() {
+        val key = buildDeckCacheKey(28, emptyList(), null)
+        enqueueJson(SMALL_DISCOVER_FIXTURE)
+        movieCatalogService.getDeck(28, emptyList(), null)
+        ageRow(key, java.time.Duration.ofHours(6))
+
+        val before = requestCount()
+        // RETRY_MAX_ATTEMPTS=3 -> 1 initial attempt + 3 retries = 4 total attempts before exhaustion.
+        repeat(4) { enqueueJson(SMALL_DISCOVER_FIXTURE, status = 500) }
+
+        val result = movieCatalogService.getDeck(28, emptyList(), null)
+
+        assertEquals(4, requestCount() - before, "expected the client's full retry budget to be consumed")
+        assertTrue(result.stale, "an outage fallback must be marked stale")
+        assertEquals(1, result.movies.size)
+        assertEquals("Fight Club", result.movies[0].title)
+        assertEquals(1, rowCountForKey(key), "the outage fallback must not write a second row")
+    }
+
+    @Test
+    fun `an upstream outage with no cached row for that filter combination raises a 503`() {
+        val key = buildDeckCacheKey(35, emptyList(), null)
+        repeat(4) { enqueueJson(SMALL_DISCOVER_FIXTURE, status = 500) }
+
+        val exception = assertThrows(ResponseStatusException::class.java) {
+            movieCatalogService.getDeck(35, emptyList(), null)
+        }
+
+        assertEquals(503, exception.statusCode.value())
+        assertEquals(0, rowCountForKey(key), "a failed cold refresh must not write a poisoned cache row")
+    }
+
+    @Test
+    fun `an upstream outage with no cached row writes nothing to the cache regardless of the surrounding tests`() {
+        val key = buildDeckCacheKey(36, emptyList(), null)
+        repeat(4) { enqueueJson(SMALL_DISCOVER_FIXTURE, status = 500) }
+
+        assertThrows(ResponseStatusException::class.java) {
+            movieCatalogService.getDeck(36, emptyList(), null)
+        }
+
+        assertEquals(0, rowCountForKey(key))
+    }
+
+    @Test
+    fun `a transient failure that succeeds on a later attempt resolves to a fresh, non-stale deck with an updated timestamp`() {
+        val key = buildDeckCacheKey(28, emptyList(), null)
+        enqueueJson(SMALL_DISCOVER_FIXTURE)
+        movieCatalogService.getDeck(28, emptyList(), null)
+        ageRow(key, java.time.Duration.ofHours(6))
+        val agedFetchedAt = jdbcTemplate.queryForObject(
+            "SELECT fetched_at FROM deck_cache_entry WHERE cache_key = ?",
+            java.sql.Timestamp::class.java,
+            key,
+        )!!.toInstant()
+
+        enqueueJson(SMALL_DISCOVER_FIXTURE, status = 500)
+        enqueueJson(SMALL_DISCOVER_FIXTURE)
+
+        val result = movieCatalogService.getDeck(28, emptyList(), null)
+
+        assertFalse(result.stale, "a retry that eventually succeeds must resolve to a fresh, non-stale deck")
+        assertEquals(1, rowCountForKey(key))
+        assertTrue(result.fetchedAt.isAfter(agedFetchedAt), "the stored row's timestamp must be updated on a successful refresh")
+    }
+
+    @Test
+    fun `a client error the retry policy excludes fails without consuming further retry attempts`() {
+        val before = requestCount()
+        enqueueJson(SMALL_DISCOVER_FIXTURE, status = 400)
+
+        assertThrows(Exception::class.java) {
+            movieCatalogService.getDeck(37, emptyList(), null)
+        }
+
+        assertEquals(1, requestCount() - before, "a non-retryable 4xx must consume exactly one upstream attempt")
     }
 
     @Test

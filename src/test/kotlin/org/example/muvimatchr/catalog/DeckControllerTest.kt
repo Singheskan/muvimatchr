@@ -480,6 +480,60 @@ class DeckControllerTest : TmdbMockServerSupport() {
     }
 
     @Test
+    fun `a stale cache row served after an upstream outage surfaces as a 200 with stale true`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Quentin")["token"] as String
+
+        enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
+        enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        ).andExpect(status().isOk)
+
+        val cacheKey = buildDeckCacheKey(null, emptyList(), "DE")
+        jdbcTemplate.update(
+            "UPDATE deck_cache_entry SET fetched_at = ? WHERE cache_key = ?",
+            java.sql.Timestamp.from(java.time.Instant.now().minus(java.time.Duration.ofHours(7))),
+            cacheKey,
+        )
+
+        // RETRY_MAX_ATTEMPTS=3 -> 1 initial attempt + 3 retries = 4 total attempts before exhaustion.
+        repeat(4) { enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE, status = 500) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertTrue(deck["stale"] as Boolean, "expected the outage fallback to be marked stale")
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertEquals(1, movies.size)
+    }
+
+    @Test
+    fun `an upstream outage with no cached deck for these filters surfaces as a 503`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Romeo")["token"] as String
+
+        repeat(4) { enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE, status = 500) }
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        ).andExpect(status().isServiceUnavailable)
+    }
+
+    @Test
     fun `two different participants of the same session receive identical deck filtering`() {
         enqueueJson(WATCH_PROVIDER_LIST_FIXTURE)
         val session = createSession("""{"region":"DE","providerIds":[8]}""")
