@@ -1,5 +1,6 @@
 package org.example.muvimatchr.catalog
 
+import org.example.muvimatchr.support.FAKE_TMDB_TOKEN
 import org.example.muvimatchr.support.TmdbMockServerSupport
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -118,5 +119,55 @@ class DeckControllerTest : TmdbMockServerSupport() {
 
         val cacheRowCount = jdbcTemplate.queryForObject("SELECT count(*) FROM deck_cache_entry", Int::class.java)
         assertEquals(1, cacheRowCount)
+    }
+
+    @Test
+    fun `GET deck response body never contains the TMDB credential value`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+        val joinResponse = joinSession(joinCode, "Bob")
+        val token = joinResponse["token"] as String
+
+        enqueueJson(DISCOVER_FIXTURE)
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        assertFalse(responseBody.contains(FAKE_TMDB_TOKEN), "TMDB credential leaked into the deck response body")
+    }
+
+    @Test
+    fun `GET deck response headers never contain the TMDB credential value`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+        val joinResponse = joinSession(joinCode, "Carol")
+        val token = joinResponse["token"] as String
+
+        enqueueJson(DISCOVER_FIXTURE)
+
+        val response = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+
+        for (headerName in response.headerNames) {
+            for (headerValue in response.getHeaders(headerName)) {
+                assertFalse(
+                    headerValue.contains(FAKE_TMDB_TOKEN),
+                    "TMDB credential leaked into response header '$headerName'",
+                )
+            }
+        }
     }
 }

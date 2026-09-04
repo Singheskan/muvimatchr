@@ -3,8 +3,10 @@ package org.example.muvimatchr.support
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
+import org.junit.jupiter.api.BeforeEach
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import java.util.concurrent.TimeUnit
 
 // Fake credential registered into the test Spring context so tests exercise a real credential
 // path (Authorization header present, format correct) without needing a real TMDB token.
@@ -25,6 +27,21 @@ abstract class TmdbMockServerSupport : PostgresTestSupport() {
         fun tmdbProperties(registry: DynamicPropertyRegistry) {
             registry.add("tmdb.api.base-url") { tmdbServer.url("/3").toString().removeSuffix("/") }
             registry.add("tmdb.api.read-access-token") { FAKE_TMDB_TOKEN }
+        }
+    }
+
+    // The recorded-request queue backing takeRequest() is JVM-wide singleton state, shared
+    // across every test class in the suite (same reasoning as the server itself). A test that
+    // triggers an upstream call without draining its recorded request (e.g. a test that only
+    // inspects the response, not the outbound request) would otherwise leave that request
+    // sitting in the queue for the NEXT test — in this class or any other — to accidentally pop
+    // via takeRequest(), silently pairing assertions with the wrong request. Draining before
+    // every test, not just within this class, keeps takeRecordedRequest() deterministic
+    // regardless of what ran before it.
+    @BeforeEach
+    fun drainLeftoverRecordedRequests() {
+        while (tmdbServer.takeRequest(0, TimeUnit.MILLISECONDS) != null) {
+            // discard
         }
     }
 
