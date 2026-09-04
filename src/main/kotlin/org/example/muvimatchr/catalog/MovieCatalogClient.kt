@@ -3,6 +3,7 @@ package org.example.muvimatchr.catalog
 import kotlinx.coroutines.reactor.awaitSingle
 import org.example.muvimatchr.catalog.tmdb.TmdbDiscoverResponse
 import org.example.muvimatchr.catalog.tmdb.TmdbGenreListResponse
+import org.example.muvimatchr.catalog.tmdb.TmdbMovieWatchProvidersResponse
 import org.example.muvimatchr.catalog.tmdb.TmdbWatchProviderListResponse
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
@@ -73,7 +74,20 @@ class MovieCatalogClient(private val tmdbWebClient: WebClient) {
             .withRetry()
             .awaitSingle()
 
-    // The one retry policy shared by discoverMovies/fetchGenres/fetchWatchProviders — factored
+    // D-10 / CTLG-04: per-movie provider resolution. This is called only from
+    // MovieCatalogService's refresh branch (never per individual deck-fetch request) -- the
+    // per-title endpoint returns every region's availability in one payload, so no region query
+    // parameter is attached here; region selection happens when reading the response
+    // (resolveRegionalAvailability), not when building the request.
+    suspend fun fetchMovieWatchProviders(movieId: Long): TmdbMovieWatchProvidersResponse =
+        tmdbWebClient.get()
+            .uri { uriBuilder -> uriBuilder.path("/movie/{movieId}/watch/providers").build(movieId) }
+            .retrieve()
+            .bodyToMono(TmdbMovieWatchProvidersResponse::class.java)
+            .withRetry()
+            .awaitSingle()
+
+    // The one retry policy shared by discoverMovies/fetchGenres/fetchWatchProviders/fetchMovieWatchProviders — factored
     // into a single helper so a future tuning change applies to every outbound call, not just some.
     private fun <T : Any> Mono<T>.withRetry(): Mono<T> =
         retryWhen(
