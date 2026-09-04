@@ -85,12 +85,12 @@ Plans:
   4. A second deck request for the same filters within the cache TTL does not trigger a new upstream TMDB call (verified via call-count or log assertion), confirming server-side caching is working.
   5. No response reaching the frontend, and no frontend-bundled code, ever contains the TMDB API key — all TMDB calls are backend-proxied.
 
-**Plans**: 5 plans
+**Plans**: 1/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Tracer: a genre-filtered deck wired end-to-end from TMDB through a filter-keyed Postgres JSONB cache to an authenticated endpoint, with the credential proven never to reach the caller
+- [x] 03-01-PLAN.md — Tracer: a genre-filtered deck wired end-to-end from TMDB through a filter-keyed Postgres JSONB cache to an authenticated endpoint, with the credential proven never to reach the caller
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -163,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
-| 3. TMDB Integration & Catalog Caching | 0/5 | Planned | - |
+| 3. TMDB Integration & Catalog Caching | 1/5 | In Progress|  |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
 | 6. Frontend SPA | 0/TBD | Not started | - |
