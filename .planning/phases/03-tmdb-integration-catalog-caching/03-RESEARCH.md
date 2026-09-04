@@ -18,6 +18,8 @@
 - **D-06:** If a filter combination (genre + provider + region) matches fewer than 5 movies, the deck endpoint returns an explicit "not enough movies, try broader filters" response instead of a thin deck. 5+ matches are returned as-is, uncapped beyond the single TMDB page.
 - **D-07:** The deck cache is keyed by filter combination (genre, provider, region) and **shared across sessions** — two sessions requesting the same filters get the same cached deck rather than each maintaining its own copy. Matches ARCHITECTURE.md's recommendation to cache per filter combo, not per session. — **Reversibility:** costly — switching to per-session cache scoping later means re-keying the cache table/lookup and re-deriving whatever cache-hit assertions Phase 3's own tests rely on (success criterion 4 is "second request for same filters within TTL doesn't re-hit TMDB").
 - **D-08:** A cached deck is considered fresh for a few hours (~6h) before a refetch from TMDB is triggered on next request. Genre and watch-provider *reference* lists (not the movie deck itself) are separately cached long-term per ARCHITECTURE.md/PITFALLS.md guidance, since those catalogs are effectively static for weeks — that reference-data TTL is Claude's discretion, not discussed as a separate decision here.
+- **D-09** (added during this research pass, 2026-09-04): Provider selection is **multi-select, session-level** — same pattern as region (D-01/D-02). `Session` needs a providers field capable of holding zero, one, or multiple TMDB provider IDs, not a single nullable `providerId` column. TMDB's `with_watch_providers` param natively accepts a comma-separated ID list with OR semantics — pass the session's full provider selection through as one query param, no per-provider TMDB calls needed for filtering.
+- **D-10** (added during this research pass, 2026-09-04): Each movie in the deck response includes its own resolved streaming-provider list (not filter-only) — see "Open Questions" resolution below; supersedes this document's original Open Question #1.
 
 ### Claude's Discretion
 
@@ -119,29 +121,34 @@ Deck-fetch request (from a session, carrying optional genre/provider filters)
     │
     ▼
 DeckController  (new: catalog/DeckController.kt, under existing /api/sessions/{id}/... prefix)
-    │  resolves Session.region from DB
+    │  resolves Session.region + Session.providers (multi-select, D-09) from DB
     ▼
-MovieCatalogService.getDeck(genreId?, providerId?, region)
+MovieCatalogService.getDeck(genreId?, providerIds: List<Int>, region)
     │
-    ├─► 1. Build cache key from (genreId, providerId, region)
+    ├─► 1. Build cache key from (genreId, providerIds sorted+joined, region)
     │
     ├─► 2. DeckCacheRepository.findByKey(cacheKey)
     │        │
-    │        ├─ HIT + fresh (< 6h old)  ──► return cached movies, SKIP TMDB call
+    │        ├─ HIT + fresh (< 6h old)  ──► return cached movies (incl. per-movie providers, D-10), SKIP TMDB calls
     │        │
-    │        ├─ HIT + stale (≥ 6h old)  ──► attempt refresh (step 3); on TMDB failure, serve this stale row (D-04)
+    │        ├─ HIT + stale (≥ 6h old)  ──► attempt refresh (steps 3-3b); on TMDB failure, serve this stale row (D-04)
     │        │
-    │        └─ MISS                     ──► attempt refresh (step 3); on TMDB failure with no row at all, return error (D-04)
+    │        └─ MISS                     ──► attempt refresh (steps 3-3b); on TMDB failure with no row at all, return error (D-04)
     │
-    ├─► 3. MovieCatalogClient.discoverMovies(genreId?, providerId?, region)
-    │        │  Authorization: Bearer <token>, GET /3/discover/movie?with_genres=..&with_watch_providers=..&watch_region=..&sort_by=popularity.desc
+    ├─► 3. MovieCatalogClient.discoverMovies(genreId?, providerIds, region)
+    │        │  Authorization: Bearer <token>, GET /3/discover/movie?with_genres=..&with_watch_providers=<comma-joined ids>&watch_region=..&sort_by=popularity.desc
     │        │  wrapped in retryWhen(Retry.backoff(...).filter { it is WebClientResponseException && (it.statusCode.is5xxServerError || it.statusCode == TOO_MANY_REQUESTS) })
     │        ▼
     │      TMDB /discover/movie  ──► JSON { page, results: [...], total_results, total_pages }
     │
+    ├─► 3b. (D-10) For each of the up to ~20 movies in the discover result: MovieCatalogClient.fetchWatchProviders(movieId)
+    │        │  GET /3/movie/{id}/watch/providers — same retry/backoff wrapper as step 3, per movie
+    │        ▼
+    │      Resolve each movie's regional provider list (flatrate/rent/buy/ads for Session.region) and attach to the movie record before caching
+    │
     ├─► 4. if total_results < 5 (D-06) ──► return "not enough movies" response (no cache write, or write a marker row — planner's call)
     │
-    ├─► 5. DeckCacheRepository.upsert(cacheKey, movies JSONB, fetched_at=now())
+    ├─► 5. DeckCacheRepository.upsert(cacheKey, movies JSONB [incl. per-movie providers], fetched_at=now())
     │
     └─► 6. return deck to caller
 ```
@@ -170,11 +177,14 @@ src/main/kotlin/org/example/muvimatchr/catalog/
 **What:** Compute a deterministic string cache key from the filter combo, e.g. `"genre:28|provider:8|region:DE"`, using a fixed literal (`"none"`) for absent filters, and put a `UNIQUE` index on that single column — rather than a composite `UNIQUE (genre_id, provider_id, region)` constraint.
 **When to use:** Whenever "no filter" must be treated as one single, reusable cache bucket per D-07/D-08.
 **Why:** Postgres `UNIQUE` constraints treat `NULL` as distinct from every other `NULL` (multiple rows with `genre_id = NULL` are all allowed to coexist), so a naive nullable composite unique constraint would let duplicate "no genre filter" cache rows accumulate instead of being upserted into one row. A single non-null string key sidesteps this entirely and is trivial to build/parse in Kotlin.
-**Example:**
+**Example (updated for D-09 multi-provider selection — providers is a list, not a single nullable id; sort before joining so the same set always produces the same key regardless of selection order):**
 ```kotlin
 // catalog/CacheKey.kt
-fun buildDeckCacheKey(genreId: Int?, providerId: Int?, region: String?): String =
-    "genre:${genreId ?: "none"}|provider:${providerId ?: "none"}|region:${region ?: "none"}"
+fun buildDeckCacheKey(genreId: Int?, providerIds: List<Int>, region: String?): String {
+    val providerPart = if (providerIds.isEmpty()) "none" else providerIds.sorted().joinToString(",")
+    val regionPart = if (providerIds.isEmpty()) "none" else (region ?: "none") // region irrelevant with no provider filter, per D-03
+    return "genre:${genreId ?: "none"}|provider:$providerPart|region:$regionPart"
+}
 ```
 ```sql
 -- Flyway migration (next number after V4, see "Codebase Specifics" below)
@@ -220,15 +230,17 @@ tmdb.cache.deck-ttl-hours=6
 **Source:** `[VERIFIED: projectreactor.io/docs/core/release/reference/coreFeatures/error-handling.html]`, fetched this session — confirms `Retry.backoff(long, Duration)` factory plus fluent `.jitter(double)`/`.maxBackoff(Duration)`/`.filter(Predicate)`.
 ```kotlin
 // catalog/MovieCatalogClient.kt
-suspend fun discoverMovies(genreId: Int?, providerId: Int?, region: String?): TmdbDiscoverResponse =
+suspend fun discoverMovies(genreId: Int?, providerIds: List<Int>, region: String?): TmdbDiscoverResponse =
     webClient.get()
         .uri { uriBuilder ->
             uriBuilder.path("/discover/movie")
                 .queryParam("sort_by", "popularity.desc")
                 .apply { genreId?.let { queryParam("with_genres", it) } }
                 .apply {
-                    providerId?.let {
-                        queryParam("with_watch_providers", it)
+                    // D-09: providerIds is the session's full multi-select; TMDB's with_watch_providers
+                    // takes a comma-separated list natively (OR semantics) — one query param, no per-provider calls.
+                    if (providerIds.isNotEmpty()) {
+                        queryParam("with_watch_providers", providerIds.joinToString(","))
                         queryParam("watch_region", region)
                     }
                 }
@@ -396,10 +408,8 @@ Authorization: Bearer <TMDB_READ_ACCESS_TOKEN>
 
 ## Open Questions
 
-1. **Does the deck response need per-movie streaming-provider badges, or is provider only a filter?**
-   - What we know: `/discover/movie` results do not include per-movie provider data inline; getting "available on Netflix" per card requires a separate `/movie/{id}/watch/providers` call per movie.
-   - What's unclear: ROADMAP's phase description lists "streaming providers" among what the deck returns (success criterion 1: "returns real TMDB titles, posters, genres, and streaming providers"), which suggests per-movie provider data IS expected in the response, not just used as a filter.
-   - Recommendation: If per-movie provider display is required, batch N `/movie/{id}/watch/providers` calls per deck refresh (only ~20 movies, only on cache-miss/refresh — not per request) and cache the per-movie provider result inside the same JSONB deck-cache row rather than a separate table. Flag this explicitly to the planner — it changes `MovieCatalogClient`'s call count per cache refresh from 1 to up to 21.
+1. **RESOLVED (2026-09-04, user decision):** Each movie in the deck response includes its own streaming-provider list — matches the literal ROADMAP success-criterion-1 wording ("titles, posters, genres, and streaming providers"). Provider is NOT filter-only.
+   - **Planner instruction:** `MovieCatalogService` must batch-fetch `/movie/{id}/watch/providers` for all movies in a deck (~20) on cache-miss/refresh only (never per individual deck-fetch request), then store the resolved per-movie provider list inside the same deck-cache row (JSONB) alongside the `/discover/movie` data. This raises `MovieCatalogClient`'s call count per cache refresh from 1 to up to 21 (1 discover call + up to 20 per-movie watch-provider calls) — the 6h TTL (D-08) means this cost is paid at most once per filter-combo per 6h window, not per user request. Retry/backoff (D-04, Pattern 3) applies to each of these calls individually.
 
 2. **"Not enough movies" response shape (HTTP status + envelope)** — explicitly Claude's Discretion per CONTEXT.md, not resolved here. Recommend a `200 OK` with a discriminated envelope (e.g. `{ "status": "insufficient_results", "matchCount": N, "minimumRequired": 5 }`) over a `4xx`, since a sparse-but-valid filter combo is not a client error — but this is a recommendation, not a locked decision, and the planner should confirm it doesn't conflict with how Phase 6's frontend will need to branch on it.
 
