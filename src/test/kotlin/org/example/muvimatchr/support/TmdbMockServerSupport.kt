@@ -42,5 +42,5 @@ abstract class TmdbMockServerSupport : PostgresTestSupport() {
 
     // The server is a JVM-wide singleton, so absolute counts are not stable across test classes
     // — callers must capture this at the start of a test and assert on the delta.
-    fun currentRequestCount(): Int = tmdbServer.requestCount
+    fun requestCount(): Int = tmdbServer.requestCount
 }
