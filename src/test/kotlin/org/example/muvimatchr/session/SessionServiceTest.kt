@@ -13,15 +13,15 @@ class SessionServiceTest : PostgresTestSupport() {
 
     @Test
     fun `two back-to-back createSession calls never return the same joinCode`() {
-        val first = sessionService.createSession()
-        val second = sessionService.createSession()
+        val first = sessionService.createSession(null, emptyList())
+        val second = sessionService.createSession(null, emptyList())
 
         assertNotEquals(first.joinCode, second.joinCode)
     }
 
     @Test
     fun `createSession returns a non-blank joinCode exactly 6 characters long and within VARCHAR(16)`() {
-        val session = sessionService.createSession()
+        val session = sessionService.createSession(null, emptyList())
 
         assertTrue(session.joinCode.isNotBlank())
         assertTrue(session.joinCode.length == 6)
