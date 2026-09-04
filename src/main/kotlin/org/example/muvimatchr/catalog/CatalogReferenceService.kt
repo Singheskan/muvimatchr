@@ -49,31 +49,47 @@ class CatalogReferenceService(
         }
     }
 
+    // WR-01: mirror MovieCatalogService.getDeck's "serve stale data on outage" design. Previously
+    // this call had no try/catch: a TMDB blip while existing rows were merely stale (not absent)
+    // would propagate uncaught out of genres()/requireKnownGenre(), even though perfectly
+    // serviceable cached reference data was one line away. Only rethrow when there is nothing to
+    // fall back to -- an empty table on a first-ever request still needs the real failure to
+    // surface.
     private fun ensureGenresFresh() {
         val newest = genreRepository.findNewestFetchedAt()
         if (newest == null || isStale(newest)) {
-            val response = runBlocking { movieCatalogClient.fetchGenres() }
-            // Per-row upsert, not a bulk replace: this is what makes two simultaneous refreshes of
-            // the genre scope converge on one row per tmdb_id instead of racing into a duplicate
-            // row or a DataIntegrityViolationException (same reasoning as DeckCacheRepository's
-            // upsertDeck).
-            response.genres.forEach { genreRepository.upsertGenre(UUID.randomUUID(), it.id, it.name) }
+            try {
+                val response = runBlocking { movieCatalogClient.fetchGenres() }
+                // Per-row upsert, not a bulk replace: this is what makes two simultaneous refreshes of
+                // the genre scope converge on one row per tmdb_id instead of racing into a duplicate
+                // row or a DataIntegrityViolationException (same reasoning as DeckCacheRepository's
+                // upsertDeck).
+                response.genres.forEach { genreRepository.upsertGenre(UUID.randomUUID(), it.id, it.name) }
+            } catch (e: Exception) {
+                if (newest == null) throw e // nothing to fall back to
+                // otherwise: serve the stale rows already in the table
+            }
         }
     }
 
     private fun ensureWatchProvidersFresh(region: String) {
         val newest = watchProviderRepository.findNewestFetchedAtForRegion(region)
         if (newest == null || isStale(newest)) {
-            val response = runBlocking { movieCatalogClient.fetchWatchProviders(region) }
-            response.results.forEach {
-                watchProviderRepository.upsertWatchProvider(
-                    UUID.randomUUID(),
-                    it.providerId,
-                    region,
-                    it.providerName,
-                    it.logoPath,
-                    it.displayPriority,
-                )
+            try {
+                val response = runBlocking { movieCatalogClient.fetchWatchProviders(region) }
+                response.results.forEach {
+                    watchProviderRepository.upsertWatchProvider(
+                        UUID.randomUUID(),
+                        it.providerId,
+                        region,
+                        it.providerName,
+                        it.logoPath,
+                        it.displayPriority,
+                    )
+                }
+            } catch (e: Exception) {
+                if (newest == null) throw e // nothing to fall back to
+                // otherwise: serve the stale rows already in the table
             }
         }
     }
