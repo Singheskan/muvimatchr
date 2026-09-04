@@ -19,7 +19,9 @@ fun resolveRegionalAvailability(response: TmdbMovieWatchProvidersResponse, regio
     // requested. Duplicate provider ids collapse, keeping the first occurrence's name/logo.
     val seenProviderIds = LinkedHashSet<Int>()
     val providers = mutableListOf<CachedProvider>()
-    for (summary in regional.flatrate + regional.rent + regional.buy + regional.ads) {
+    val allSummaries = (regional.flatrate ?: emptyList()) + (regional.rent ?: emptyList()) +
+        (regional.buy ?: emptyList()) + (regional.ads ?: emptyList())
+    for (summary in allSummaries) {
         if (seenProviderIds.add(summary.providerId)) {
             providers.add(CachedProvider(summary.providerId, summary.providerName, summary.logoPath))
         }

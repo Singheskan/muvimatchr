@@ -37,6 +37,28 @@ private const val MOVIE_WATCH_PROVIDERS_FIXTURE = """
 }
 """
 
+// Regions with a monetization category key OMITTED ENTIRELY, not sent as an empty array -- the
+// real shape of TMDB's payload (confirmed live: of one movie's ~126 regions, ~all omit `ads`
+// outright, and roughly 40% omit `rent`/`buy` entirely). Every other fixture in this file sends
+// every key explicitly (even as `[]`), which is why a Jackson/Kotlin defaulting bug here shipped
+// undetected: a genuinely-missing key gets Jackson to pass null for a non-nullable constructor
+// parameter with a Kotlin default, throwing "Parameter specified as non-null is null" instead of
+// falling back to the default.
+private const val MOVIE_WATCH_PROVIDERS_MISSING_KEYS_FIXTURE = """
+{
+  "id": 550,
+  "results": {
+    "DE": {
+      "link": "https://www.themoviedb.org/movie/550-fight-club/watch?locale=DE",
+      "flatrate": [ {"provider_id": 8, "provider_name": "Netflix", "logo_path": "/netflix.jpg", "display_priority": 1} ]
+    },
+    "JP": {
+      "link": "https://www.themoviedb.org/movie/550-fight-club/watch?locale=JP"
+    }
+  }
+}
+"""
+
 // A duplicate provider id (8) appears in both flatrate and rent for DE -- proves the merge
 // collapses duplicates and keeps the first occurrence's name/logo rather than the later one's.
 private const val MOVIE_WATCH_PROVIDERS_DEDUP_FIXTURE = """
@@ -149,6 +171,23 @@ class MovieCatalogClientTest : TmdbMockServerSupport() {
     }
 
     @Test
+    fun `a region entry that omits monetization category keys entirely deserializes without throwing and resolves the categories that are present`() {
+        enqueueJson(MOVIE_WATCH_PROVIDERS_MISSING_KEYS_FIXTURE)
+        val response = runBlocking { movieCatalogClient.fetchMovieWatchProviders(550) }
+        takeRecordedRequest()
+
+        val resolvedDe = resolveRegionalAvailability(response, "DE")
+        assertEquals(1, resolvedDe.providers.size)
+        assertTrue(resolvedDe.providers.any { it.providerId == 8 && it.providerName == "Netflix" })
+
+        // JP omits every category key -- link-only entry resolves to an empty provider list and
+        // the JP link, not an exception and not another region's data.
+        val resolvedJp = resolveRegionalAvailability(response, "JP")
+        assertTrue(resolvedJp.providers.isEmpty())
+        assertEquals("https://www.themoviedb.org/movie/550-fight-club/watch?locale=JP", resolvedJp.watchLink)
+    }
+
+    @Test
     fun `resolving a region merges flatrate, rent, buy and ads into one deduplicated list keeping the first occurrence`() {
         enqueueJson(MOVIE_WATCH_PROVIDERS_DEDUP_FIXTURE)
         val response = runBlocking { movieCatalogClient.fetchMovieWatchProviders(550) }
@@ -173,6 +212,28 @@ class MovieCatalogClientTest : TmdbMockServerSupport() {
 
         assertEquals("https://www.themoviedb.org/movie/550-fight-club/watch?locale=DE", resolvedDe.watchLink)
         assertEquals("https://www.themoviedb.org/movie/550-fight-club/watch?locale=US", resolvedUs.watchLink)
+    }
+
+    @Test
+    fun `retry predicate matches a connection-level failure wrapped by WebClient, not just a bare IOException`() {
+        // Live-verified (CR-04 follow-up): Spring WebClient never surfaces java.net.ConnectException
+        // directly -- it wraps every request-phase I/O failure in WebClientRequestException, a plain
+        // RuntimeException, with the real IOException reachable only via `.cause`. A predicate that
+        // checks `throwable is java.io.IOException` misses this entirely; confirmed live via a real
+        // connection-refused failure returning an unhandled 500 in ~0.2s with zero retries.
+        val wrapped = org.springframework.web.reactive.function.client.WebClientRequestException(
+            java.net.ConnectException("Connection refused"),
+            org.springframework.http.HttpMethod.GET,
+            java.net.URI.create("https://api.themoviedb.org/3/discover/movie"),
+            org.springframework.http.HttpHeaders.EMPTY,
+        )
+        assertTrue(with(movieCatalogClient) { wrapped.hasIOExceptionCause() })
+
+        val bareIo = java.io.IOException("bare")
+        assertTrue(with(movieCatalogClient) { bareIo.hasIOExceptionCause() })
+
+        val unrelated = IllegalStateException("not an I/O failure")
+        assertFalse(with(movieCatalogClient) { unrelated.hasIOExceptionCause() })
     }
 
     @Test
