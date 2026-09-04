@@ -8,6 +8,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.example.muvimatchr.catalog.tmdb.TmdbMovie
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
@@ -93,7 +94,17 @@ class MovieCatalogService(
         val fetchedAt = Instant.now()
         // id is only consumed on the insert path of the ON CONFLICT upsert; the conflict path
         // keeps the existing row's id.
-        deckCacheRepository.upsertDeck(UUID.randomUUID(), key, json, totalResults)
+        // CR-01: this write can still fail (e.g. a cache-key collision that survives hashing, or
+        // any other constraint violation) after the TMDB call has already succeeded. A caching
+        // failure must not turn an otherwise-successful fetch into an unhandled 500 -- the freshly
+        // fetched deck is still valid and returnable even if it couldn't be persisted.
+        try {
+            deckCacheRepository.upsertDeck(UUID.randomUUID(), key, json, totalResults)
+        } catch (e: DataIntegrityViolationException) {
+            // Deliberately swallowed: the deck below is returned to the caller regardless of
+            // whether it could be cached. The next request for this filter combination simply
+            // misses the cache and re-fetches from TMDB.
+        }
         return DeckResult(movies, totalResults, fetchedAt, stale = false)
     }
 
