@@ -37,14 +37,18 @@ private const val DISCOVER_FIXTURE = """
 }
 """
 
+// total_results is deliberately above MINIMUM_DECK_SIZE (Plan 03-05's D-06 floor) even though
+// this fixture's results array carries only one movie -- these tests exercise per-movie
+// availability/provider-resolution plumbing, not the sparse-result threshold, and a totalResults
+// below the floor would now route the response through the insufficient_results branch instead.
 private const val SINGLE_MOVIE_DISCOVER_FIXTURE = """
 {
   "page": 1,
   "results": [
     {"id": 550, "title": "Fight Club", "poster_path": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg", "genre_ids": [18, 53], "vote_average": 8.4, "popularity": 61.4, "release_date": "1999-10-15", "overview": "An insomniac office worker..."}
   ],
-  "total_results": 1,
-  "total_pages": 1
+  "total_results": 25,
+  "total_pages": 2
 }
 """
 
@@ -65,6 +69,33 @@ private const val MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE = """
   "US": {"link": "https://example.com/us", "flatrate": [{"provider_id": 337, "provider_name": "Disney Plus", "logo_path": "/disney.jpg", "display_priority": 1}], "rent": [], "buy": [], "ads": []}
 }}
 """
+
+// D-06's boundary: exactly four movies -- one below MINIMUM_DECK_SIZE.
+private const val FOUR_MOVIE_DISCOVER_FIXTURE = """
+{
+  "page": 1,
+  "results": [
+    {"id": 1, "title": "Movie One", "poster_path": "/one.jpg", "genre_ids": [28], "vote_average": 7.0, "popularity": 10.0, "release_date": "2020-01-01", "overview": "..."},
+    {"id": 2, "title": "Movie Two", "poster_path": "/two.jpg", "genre_ids": [28], "vote_average": 7.1, "popularity": 10.1, "release_date": "2020-01-02", "overview": "..."},
+    {"id": 3, "title": "Movie Three", "poster_path": "/three.jpg", "genre_ids": [28], "vote_average": 7.2, "popularity": 10.2, "release_date": "2020-01-03", "overview": "..."},
+    {"id": 4, "title": "Movie Four", "poster_path": "/four.jpg", "genre_ids": [28], "vote_average": 7.3, "popularity": 10.3, "release_date": "2020-01-04", "overview": "..."}
+  ],
+  "total_results": 4,
+  "total_pages": 1
+}
+"""
+
+private const val ZERO_MOVIE_DISCOVER_FIXTURE = """
+{ "page": 1, "results": [], "total_results": 0, "total_pages": 0 }
+"""
+
+// D-06's other half: a full TMDB page (twenty movies) proves the floor is never a ceiling.
+private fun twentyMovieDiscoverFixture(): String {
+    val movies = (1..20).joinToString(",\n") { i ->
+        """{"id": $i, "title": "Movie $i", "poster_path": "/m$i.jpg", "genre_ids": [28], "vote_average": 7.0, "popularity": 10.0, "release_date": "2020-01-01", "overview": "..."}"""
+    }
+    return """{ "page": 1, "results": [$movies], "total_results": 20, "total_pages": 1 }"""
+}
 
 @AutoConfigureMockMvc
 class DeckControllerTest : TmdbMockServerSupport() {
@@ -477,6 +508,234 @@ class DeckControllerTest : TmdbMockServerSupport() {
         assertFalse(discoverRequest.requestLine.contains("with_watch_providers"), discoverRequest.requestLine)
         assertFalse(discoverRequest.requestLine.contains("watch_region"), discoverRequest.requestLine)
         repeat(5) { takeRecordedRequest() }
+    }
+
+    @Test
+    fun `a stale cache row served after an upstream outage surfaces as a 200 with stale true`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Quentin")["token"] as String
+
+        enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
+        enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        ).andExpect(status().isOk)
+
+        val cacheKey = buildDeckCacheKey(null, emptyList(), "DE")
+        jdbcTemplate.update(
+            "UPDATE deck_cache_entry SET fetched_at = ? WHERE cache_key = ?",
+            java.sql.Timestamp.from(java.time.Instant.now().minus(java.time.Duration.ofHours(7))),
+            cacheKey,
+        )
+
+        // RETRY_MAX_ATTEMPTS=3 -> 1 initial attempt + 3 retries = 4 total attempts before exhaustion.
+        repeat(4) { enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE, status = 500) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertTrue(deck["stale"] as Boolean, "expected the outage fallback to be marked stale")
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertEquals(1, movies.size)
+    }
+
+    @Test
+    fun `an upstream outage with no cached deck for these filters surfaces as a 503`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Romeo")["token"] as String
+
+        repeat(4) { enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE, status = 500) }
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        ).andExpect(status().isServiceUnavailable)
+    }
+
+    @Test
+    fun `a filter combination resolving to four movies returns insufficient_results with an empty movies list and the true count`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Sybil")["token"] as String
+
+        enqueueJson(FOUR_MOVIE_DISCOVER_FIXTURE)
+        repeat(4) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertEquals("insufficient_results", deck["status"])
+        assertEquals(4, deck["totalResults"])
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertTrue(movies.isEmpty(), "expected an empty movies list, not a thin deck of the four matches")
+    }
+
+    @Test
+    fun `a filter combination resolving to exactly five movies returns the ordinary ok status with all five movies present`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Trent")["token"] as String
+
+        enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertEquals("ok", deck["status"])
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertEquals(5, movies.size, "five matches is the floor, not a threshold to also exclude")
+    }
+
+    @Test
+    fun `a filter combination resolving to twenty movies returns all twenty, uncapped beyond the single TMDB page`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Ursula")["token"] as String
+
+        enqueueJson(twentyMovieDiscoverFixture())
+        repeat(20) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertEquals("ok", deck["status"])
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertEquals(20, movies.size, "the five-movie rule is a floor and must never truncate a larger deck")
+    }
+
+    @Test
+    fun `a filter combination resolving to zero movies returns insufficient_results with a truthful zero count, not a 404 or error`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Victor")["token"] as String
+
+        enqueueJson(ZERO_MOVIE_DISCOVER_FIXTURE)
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertEquals("insufficient_results", deck["status"])
+        assertEquals(0, deck["totalResults"])
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertTrue(movies.isEmpty())
+    }
+
+    @Test
+    fun `a sparse filter combination is cached like any other -- a second identical request within the TTL makes zero further upstream requests`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Wendy")["token"] as String
+
+        enqueueJson(FOUR_MOVIE_DISCOVER_FIXTURE)
+        repeat(4) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        ).andExpect(status().isOk)
+
+        val before = requestCount()
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        assertEquals(0, requestCount() - before, "a repeated sparse-filter request within the TTL must not re-hit TMDB")
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertEquals("insufficient_results", deck["status"])
+        assertEquals(4, deck["totalResults"])
+    }
+
+    @Test
+    fun `an insufficient-results deck for one filter combination never leaks movies from a full deck cached under a different combination`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Yolanda")["token"] as String
+
+        // Establish a full ("ok") cached deck under no genre filter first.
+        enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        ).andExpect(status().isOk)
+
+        // A genre-filtered request against the same session resolves sparse -- a distinct cache
+        // key (Plan 03-01's D-07 key scoping), so it must not substitute the already-cached
+        // unfiltered deck's movies.
+        enqueueJson(GENRE_FIXTURE)
+        enqueueJson(FOUR_MOVIE_DISCOVER_FIXTURE)
+        repeat(4) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .param("genre", "28")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertEquals("insufficient_results", deck["status"])
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertTrue(movies.isEmpty(), "an insufficient-results response must never substitute movies from a differently-filtered cached deck")
     }
 
     @Test
