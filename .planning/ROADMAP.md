@@ -85,7 +85,7 @@ Plans:
   4. A second deck request for the same filters within the cache TTL does not trigger a new upstream TMDB call (verified via call-count or log assertion), confirming server-side caching is working.
   5. No response reaching the frontend, and no frontend-bundled code, ever contains the TMDB API key — all TMDB calls are backend-proxied.
 
-**Plans**: 3/5 plans executed
+**Plans**: 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -102,7 +102,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03-04-PLAN.md — Region-aware provider filtering driven by the session row, and per-movie streaming availability resolved under a bounded concurrency budget on the refresh path only
+- [x] 03-04-PLAN.md — Region-aware provider filtering driven by the session row, and per-movie streaming availability resolved under a bounded concurrency budget on the refresh path only
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -163,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
-| 3. TMDB Integration & Catalog Caching | 3/5 | In Progress|  |
+| 3. TMDB Integration & Catalog Caching | 4/5 | In Progress|  |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
 | 6. Frontend SPA | 0/TBD | Not started | - |
