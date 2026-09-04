@@ -34,8 +34,14 @@ class MovieCatalogService(
     @Value("\${tmdb.cache.deck-ttl-hours:6}")
     private var deckTtlHours: Long = 6
 
+    // WR-03: kotlinx.coroutines.sync.Semaphore requires a positive permit count. A misconfigured
+    // value of 0 (or negative) in application.properties/environment would otherwise either throw
+    // at construction or hang every withPermit call indefinitely -- hanging every deck refresh
+    // that needs per-movie availability resolution (i.e. every refresh with a non-null region, the
+    // common case). Coercing to a safe minimum here fails safe instead of failing silent.
     @Value("\${tmdb.provider-lookup.max-concurrency:8}")
     private var providerLookupConcurrency: Int = 8
+        set(value) { field = value.coerceAtLeast(1) }
 
     fun getDeck(genreId: Int?, providerIds: List<Int>, region: String?): DeckResult {
         val key = buildDeckCacheKey(genreId, providerIds, region)
