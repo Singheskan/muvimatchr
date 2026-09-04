@@ -2,10 +2,13 @@ package org.example.muvimatchr.catalog
 
 import kotlinx.coroutines.reactor.awaitSingle
 import org.example.muvimatchr.catalog.tmdb.TmdbDiscoverResponse
+import org.example.muvimatchr.catalog.tmdb.TmdbGenreListResponse
+import org.example.muvimatchr.catalog.tmdb.TmdbWatchProviderListResponse
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.WebClientResponseException
+import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
 
@@ -40,14 +43,46 @@ class MovieCatalogClient(private val tmdbWebClient: WebClient) {
             }
             .retrieve()
             .bodyToMono(TmdbDiscoverResponse::class.java)
-            .retryWhen(
-                Retry.backoff(RETRY_MAX_ATTEMPTS, RETRY_MIN_BACKOFF)
-                    .maxBackoff(RETRY_MAX_BACKOFF)
-                    .jitter(RETRY_JITTER)
-                    .filter { throwable ->
-                        throwable is WebClientResponseException &&
-                            (throwable.statusCode.is5xxServerError || throwable.statusCode == HttpStatus.TOO_MANY_REQUESTS)
-                    }
-            )
+            .withRetry()
             .awaitSingle()
+
+    // Reference data (CTLG-02/CTLG-03's discoverability half, D-08's second half): the genre and
+    // watch-provider lists are effectively static for weeks, so CatalogReferenceService caches
+    // them in their own long-TTL tables rather than re-fetching per deck request.
+    suspend fun fetchGenres(): TmdbGenreListResponse =
+        tmdbWebClient.get()
+            .uri { uriBuilder ->
+                uriBuilder.path("/genre/movie/list")
+                    .queryParam("language", "en")
+                    .build()
+            }
+            .retrieve()
+            .bodyToMono(TmdbGenreListResponse::class.java)
+            .withRetry()
+            .awaitSingle()
+
+    suspend fun fetchWatchProviders(region: String): TmdbWatchProviderListResponse =
+        tmdbWebClient.get()
+            .uri { uriBuilder ->
+                uriBuilder.path("/watch/providers/movie")
+                    .queryParam("watch_region", region)
+                    .build()
+            }
+            .retrieve()
+            .bodyToMono(TmdbWatchProviderListResponse::class.java)
+            .withRetry()
+            .awaitSingle()
+
+    // The one retry policy shared by discoverMovies/fetchGenres/fetchWatchProviders — factored
+    // into a single helper so a future tuning change applies to every outbound call, not just some.
+    private fun <T : Any> Mono<T>.withRetry(): Mono<T> =
+        retryWhen(
+            Retry.backoff(RETRY_MAX_ATTEMPTS, RETRY_MIN_BACKOFF)
+                .maxBackoff(RETRY_MAX_BACKOFF)
+                .jitter(RETRY_JITTER)
+                .filter { throwable ->
+                    throwable is WebClientResponseException &&
+                        (throwable.statusCode.is5xxServerError || throwable.statusCode == HttpStatus.TOO_MANY_REQUESTS)
+                }
+        )
 }
