@@ -30,6 +30,14 @@ class SessionService(private val sessionRepository: SessionRepository) {
                     Session(joinCode = candidate, region = region ?: DEFAULT_REGION, providerIds = providerIds)
                 )
             } catch (e: DataIntegrityViolationException) {
+                // CR-02: DataIntegrityViolationException is also what Postgres throws for an
+                // oversized provider_ids column (VARCHAR(255)), not just a join-code collision.
+                // Without this check, an oversized-but-otherwise-valid provider selection is
+                // silently retried up to MAX_JOIN_CODE_ATTEMPTS times with the same oversized data
+                // and then surfaces as a misleading "could not allocate a join code" error. Only
+                // swallow the constraint this loop is actually designed to handle; rethrow
+                // anything else so the real cause propagates.
+                if (e.mostSpecificCause.message?.contains("uq_session_join_code") != true) throw e
                 // collision on uq_session_join_code — retry with a new candidate
             }
         }

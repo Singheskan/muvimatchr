@@ -79,6 +79,18 @@ class SessionController(
         if (providerIds.any { it <= 0 }) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "providerIds must all be positive")
         }
+        // CR-01/CR-02: the raw id list is stored comma-joined in the `provider_ids VARCHAR(255)`
+        // column (Session.kt) and folded into the deck cache key (CacheKey.kt). TMDB's real
+        // per-region provider catalogues commonly carry 40-100+ entries, so an unbounded count is
+        // reachable with entirely valid, catalogue-known ids. Capping the count here is a single
+        // choke point that protects both downstream column widths.
+        if (providerIds.size > MAX_PROVIDER_IDS) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "providerIds must not exceed $MAX_PROVIDER_IDS entries")
+        }
+    }
+
+    private companion object {
+        private const val MAX_PROVIDER_IDS = 20
     }
 }
 
