@@ -105,7 +105,10 @@ class MovieCatalogService(
         // failure must not turn an otherwise-successful fetch into an unhandled 500 -- the freshly
         // fetched deck is still valid and returnable even if it couldn't be persisted.
         try {
-            deckCacheRepository.upsertDeck(UUID.randomUUID(), key, json, totalResults)
+            // WR-04: fetchedAt is passed as the same Instant returned in DeckResult below, so the
+            // persisted row and the value handed back to the caller are never separately-evaluated
+            // timestamps.
+            deckCacheRepository.upsertDeck(UUID.randomUUID(), key, json, totalResults, fetchedAt)
         } catch (e: DataIntegrityViolationException) {
             // Deliberately swallowed: the deck below is returned to the caller regardless of
             // whether it could be cached. The next request for this filter combination simply
