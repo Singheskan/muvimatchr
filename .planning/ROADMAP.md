@@ -85,7 +85,7 @@ Plans:
   4. A second deck request for the same filters within the cache TTL does not trigger a new upstream TMDB call (verified via call-count or log assertion), confirming server-side caching is working.
   5. No response reaching the frontend, and no frontend-bundled code, ever contains the TMDB API key — all TMDB calls are backend-proxied.
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans executed
 
 Plans:
 **Wave 1**
@@ -106,7 +106,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 03-05-PLAN.md — Outage degradation (retry, then serve stale labelled as stale, then fail explicitly) and the explicit insufficient-results response for sparse filter combinations
+- [x] 03-05-PLAN.md — Outage degradation (retry, then serve stale labelled as stale, then fail explicitly) and the explicit insufficient-results response for sparse filter combinations
 
 *Note: the five plans run in five sequential waves. Plan 03-02 shares no source file with 03-01 and would otherwise be parallelisable, but each of 03-01, 03-02 and 03-03 adds a Flyway migration, and a lower-numbered migration landing after a higher-numbered one has already run is the out-of-order condition Flyway refuses on a persistent database. Plans 03-03 through 03-05 additionally share `MovieCatalogClient.kt`, `MovieCatalogService.kt` and `DeckController.kt`.*
 
@@ -163,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
-| 3. TMDB Integration & Catalog Caching | 4/5 | In Progress|  |
+| 3. TMDB Integration & Catalog Caching | 5/5 | In Progress|  |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
 | 6. Frontend SPA | 0/TBD | Not started | - |
