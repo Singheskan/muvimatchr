@@ -89,14 +89,25 @@ class MovieCatalogClient(private val tmdbWebClient: WebClient) {
 
     // The one retry policy shared by discoverMovies/fetchGenres/fetchWatchProviders/fetchMovieWatchProviders — factored
     // into a single helper so a future tuning change applies to every outbound call, not just some.
+    //
+    // CR-04: WebClientResponseException is only thrown when TMDB actually returns an HTTP
+    // response with an error status. A genuine connectivity failure -- connection refused, DNS
+    // resolution failure, TLS handshake failure, a response timeout with no bytes received --
+    // throws a different exception type (java.net.ConnectException, Reactor Netty's
+    // PrematureCloseException/ReadTimeoutException, etc.), all of which are java.io.IOException
+    // subtypes. Without this branch, retryWhen never retries the single most common real-world
+    // outage shape, and it also defeats MovieCatalogService.getDeck's degradation ladder: that
+    // catch block relies on Exceptions.isRetryExhausted(e), which is only true for exceptions
+    // that actually went through a retry cycle.
     private fun <T : Any> Mono<T>.withRetry(): Mono<T> =
         retryWhen(
             Retry.backoff(RETRY_MAX_ATTEMPTS, RETRY_MIN_BACKOFF)
                 .maxBackoff(RETRY_MAX_BACKOFF)
                 .jitter(RETRY_JITTER)
                 .filter { throwable ->
-                    throwable is WebClientResponseException &&
-                        (throwable.statusCode.is5xxServerError || throwable.statusCode == HttpStatus.TOO_MANY_REQUESTS)
+                    (throwable is WebClientResponseException &&
+                        (throwable.statusCode.is5xxServerError || throwable.statusCode == HttpStatus.TOO_MANY_REQUESTS)) ||
+                        throwable is java.io.IOException
                 }
         )
 }
