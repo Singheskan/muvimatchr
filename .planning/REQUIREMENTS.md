@@ -17,7 +17,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Movie Catalog
 
-- [ ] **CTLG-01**: Deck is sourced from TMDB (titles, posters, genres, streaming providers)
+- [x] **CTLG-01**: Deck is sourced from TMDB (titles, posters, genres, streaming providers)
 - [x] **CTLG-02**: Participant can filter the deck by genre
 - [x] **CTLG-03**: Participant can filter the deck by streaming availability (region-aware)
 - [x] **CTLG-04**: TMDB responses are cached server-side (not re-fetched per deck load)
@@ -84,7 +84,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SESH-03 | Phase 2 | Complete |
 | SESH-04 | Phase 2 | Complete |
 | SESH-05 | Phase 2 | Complete |
-| CTLG-01 | Phase 3 | Pending |
+| CTLG-01 | Phase 3 | Complete |
 | CTLG-02 | Phase 3 | Complete |
 | CTLG-03 | Phase 3 | Complete |
 | CTLG-04 | Phase 3 | Complete |

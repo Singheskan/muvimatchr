@@ -37,6 +37,35 @@ private const val DISCOVER_FIXTURE = """
 }
 """
 
+private const val SINGLE_MOVIE_DISCOVER_FIXTURE = """
+{
+  "page": 1,
+  "results": [
+    {"id": 550, "title": "Fight Club", "poster_path": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg", "genre_ids": [18, 53], "vote_average": 8.4, "popularity": 61.4, "release_date": "1999-10-15", "overview": "An insomniac office worker..."}
+  ],
+  "total_results": 1,
+  "total_pages": 1
+}
+"""
+
+// Flat reference-catalogue fixture for CatalogReferenceService's provider-id validation domain
+// (Plan 03-03), consulted at session-creation/filter-replacement time, not at deck-fetch time.
+private const val WATCH_PROVIDER_LIST_FIXTURE = """
+{ "results": [ {"provider_id": 8, "provider_name": "Netflix", "logo_path": "/netflix.jpg", "display_priority": 1}, {"provider_id": 337, "provider_name": "Disney Plus", "logo_path": "/disney.jpg", "display_priority": 2} ] }
+"""
+
+// Per-movie availability fixture carrying both DE and US entries with different providers and
+// links -- reused across every test below. Whichever region MovieCatalogService actually resolves
+// against determines which entry a movie's response carries, so this single fixture doubles as
+// the cross-region-leak check: if the wrong region's data were ever resolved, these tests would
+// see the other region's provider id/link instead of the expected one.
+private const val MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE = """
+{"id": 0, "results": {
+  "DE": {"link": "https://example.com/de", "flatrate": [{"provider_id": 8, "provider_name": "Netflix", "logo_path": "/netflix.jpg", "display_priority": 1}], "rent": [], "buy": [], "ads": []},
+  "US": {"link": "https://example.com/us", "flatrate": [{"provider_id": 337, "provider_name": "Disney Plus", "logo_path": "/disney.jpg", "display_priority": 1}], "rent": [], "buy": [], "ads": []}
+}}
+"""
+
 @AutoConfigureMockMvc
 class DeckControllerTest : TmdbMockServerSupport() {
 
@@ -53,18 +82,28 @@ class DeckControllerTest : TmdbMockServerSupport() {
     lateinit var genreRepository: GenreRepository
 
     @Autowired
+    lateinit var watchProviderRepository: WatchProviderRepository
+
+    @Autowired
     lateinit var jdbcTemplate: JdbcTemplate
 
     @BeforeEach
     fun clearDeckCache() {
         deckCacheRepository.deleteAll()
-        // The genre validation lookup is lazy-on-miss just like the deck cache; clearing it here
-        // keeps each test's request-count assertions deterministic regardless of test order.
+        // The genre/provider validation lookups are lazy-on-miss just like the deck cache;
+        // clearing them here keeps each test's request-count assertions deterministic regardless
+        // of test order -- this task's session-creation-with-providers tests would otherwise see
+        // a prior test's already-fresh region and silently never consume their enqueued fixture.
         genreRepository.deleteAll()
+        watchProviderRepository.deleteAll()
     }
 
-    private fun createSession(): Map<String, Any> {
-        val response = mockMvc.perform(post("/api/sessions"))
+    private fun createSession(body: String? = null): Map<String, Any> {
+        val request = post("/api/sessions")
+        if (body != null) {
+            request.contentType(MediaType.APPLICATION_JSON).content(body)
+        }
+        val response = mockMvc.perform(request)
             .andExpect(status().isCreated)
             .andReturn()
             .response
@@ -99,6 +138,9 @@ class DeckControllerTest : TmdbMockServerSupport() {
         // the validation domain with id 28) must be enqueued first.
         enqueueJson(GENRE_FIXTURE)
         enqueueJson(DISCOVER_FIXTURE)
+        // Plan 03-04: the session's region (default DE) is always passed now, so the refresh path
+        // resolves per-movie availability for all 5 fixture movies -- one fixture per movie.
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         val responseBody = mockMvc.perform(
             get("/api/sessions/$sessionId/deck")
@@ -131,6 +173,7 @@ class DeckControllerTest : TmdbMockServerSupport() {
         val requestLine = recorded.requestLine
         assertTrue(requestLine.contains("with_genres=28"), "expected with_genres=28 in $requestLine")
         assertTrue(requestLine.contains("sort_by=popularity.desc"), "expected sort_by=popularity.desc in $requestLine")
+        repeat(5) { takeRecordedRequest() }
 
         val cacheRowCount = jdbcTemplate.queryForObject("SELECT count(*) FROM deck_cache_entry", Int::class.java)
         assertEquals(1, cacheRowCount)
@@ -145,6 +188,7 @@ class DeckControllerTest : TmdbMockServerSupport() {
         val token = joinResponse["token"] as String
 
         enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         val responseBody = mockMvc.perform(
             get("/api/sessions/$sessionId/deck")
@@ -167,6 +211,7 @@ class DeckControllerTest : TmdbMockServerSupport() {
         val token = joinResponse["token"] as String
 
         enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         val response = mockMvc.perform(
             get("/api/sessions/$sessionId/deck")
@@ -195,6 +240,7 @@ class DeckControllerTest : TmdbMockServerSupport() {
 
         enqueueJson(GENRE_FIXTURE)
         enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         mockMvc.perform(
             get("/api/sessions/$sessionId/deck")
@@ -207,6 +253,7 @@ class DeckControllerTest : TmdbMockServerSupport() {
         assertTrue(genreRequest.requestLine.contains("/genre/movie/list"), "expected the genre-list request first, got ${genreRequest.requestLine}")
         val discoverRequest = takeRecordedRequest()
         assertTrue(discoverRequest.requestLine.contains("with_genres=28"), "expected the discover request second, got ${discoverRequest.requestLine}")
+        repeat(5) { takeRecordedRequest() }
     }
 
     @Test
@@ -243,6 +290,7 @@ class DeckControllerTest : TmdbMockServerSupport() {
 
         val before = requestCount()
         enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         mockMvc.perform(
             get("/api/sessions/$sessionId/deck")
@@ -250,9 +298,218 @@ class DeckControllerTest : TmdbMockServerSupport() {
         )
             .andExpect(status().isOk)
 
-        // requireKnownGenre(null) is a no-op -- only the discover call happened, no genre-list fetch.
-        assertEquals(1, requestCount() - before)
+        // requireKnownGenre(null) is a no-op -- no genre-list fetch. The discover call plus one
+        // availability call per fixture movie (5) is what actually happened.
+        assertEquals(6, requestCount() - before)
         val recorded = takeRecordedRequest()
         assertFalse(recorded.requestLine.contains("/genre/movie/list"), "expected no genre-list request, got ${recorded.requestLine}")
+        repeat(5) { takeRecordedRequest() }
+    }
+
+    @Test
+    fun `a deck request against a session with an empty provider selection carries no provider filter or region parameter, and movies still carry the session's region availability`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Ivan")["token"] as String
+
+        enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val discoverRequest = takeRecordedRequest()
+        assertFalse(discoverRequest.requestLine.contains("with_watch_providers"), discoverRequest.requestLine)
+        assertFalse(discoverRequest.requestLine.contains("watch_region"), discoverRequest.requestLine)
+        repeat(5) { takeRecordedRequest() }
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertEquals(5, movies.size)
+        movies.forEach { movie ->
+            @Suppress("UNCHECKED_CAST")
+            val providers = movie["providers"] as List<Map<String, Any>>
+            assertTrue(providers.isNotEmpty(), "expected the session's DE region availability on every movie")
+            assertEquals(8, providers[0]["providerId"])
+            assertEquals("https://example.com/de", movie["watchLink"])
+        }
+    }
+
+    @Test
+    fun `a deck request against a session selecting two providers sends both ids in one comma-separated filter with the session's region, and movies carry resolved availability`() {
+        enqueueJson(WATCH_PROVIDER_LIST_FIXTURE)
+        val session = createSession("""{"region":"DE","providerIds":[8,337]}""")
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Judy")["token"] as String
+        // Drain the reference-data validation request createSession triggered (Plan 03-03's
+        // requireKnownProviders) -- otherwise it sits at the head of the recorded-request queue
+        // and the assertion below would inspect it instead of the discover request.
+        takeRecordedRequest()
+
+        enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val discoverRequest = takeRecordedRequest()
+        assertTrue(
+            discoverRequest.requestLine.contains("with_watch_providers=8,337") ||
+                discoverRequest.requestLine.contains("with_watch_providers=8%2C337"),
+            "expected a single comma-separated provider filter carrying both ids, got ${discoverRequest.requestLine}",
+        )
+        assertTrue(discoverRequest.requestLine.contains("watch_region=DE"), discoverRequest.requestLine)
+        repeat(5) { takeRecordedRequest() }
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        movies.forEach { movie ->
+            @Suppress("UNCHECKED_CAST")
+            val providers = movie["providers"] as List<Map<String, Any>>
+            assertTrue(providers.isNotEmpty())
+            assertEquals("https://example.com/de", movie["watchLink"])
+        }
+    }
+
+    @Test
+    fun `the deck response's movies each carry a non-empty provider list and a watch link when the availability fixture lists that region`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Peggy")["token"] as String
+
+        enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
+        enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val movie = (objectMapper.readValue(responseBody, Map::class.java)["movies"] as List<Map<String, Any>>)[0]
+        @Suppress("UNCHECKED_CAST")
+        val providers = movie["providers"] as List<Map<String, Any>>
+        assertEquals(1, providers.size, "expected the DE fixture's single provider entry")
+        assertEquals("Netflix", providers[0]["providerName"])
+        assertEquals("https://example.com/de", movie["watchLink"])
+    }
+
+    @Test
+    fun `two sessions with the same genre and provider selection but different regions produce two distinct cache rows carrying their own region's availability`() {
+        enqueueJson(WATCH_PROVIDER_LIST_FIXTURE)
+        val sessionDe = createSession("""{"region":"DE","providerIds":[8]}""")
+        enqueueJson(WATCH_PROVIDER_LIST_FIXTURE)
+        val sessionUs = createSession("""{"region":"US","providerIds":[8]}""")
+
+        val tokenDe = joinSession(sessionDe["joinCode"] as String, "Karl")["token"] as String
+        val tokenUs = joinSession(sessionUs["joinCode"] as String, "Laura")["token"] as String
+
+        enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
+        enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
+        val bodyDe = mockMvc.perform(
+            get("/api/sessions/${sessionDe["sessionId"]}/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenDe")
+        ).andExpect(status().isOk).andReturn().response.contentAsString
+
+        enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
+        enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
+        val bodyUs = mockMvc.perform(
+            get("/api/sessions/${sessionUs["sessionId"]}/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenUs")
+        ).andExpect(status().isOk).andReturn().response.contentAsString
+
+        val cacheRowCount = jdbcTemplate.queryForObject("SELECT count(*) FROM deck_cache_entry", Int::class.java)
+        assertEquals(2, cacheRowCount)
+
+        @Suppress("UNCHECKED_CAST")
+        val movieDe = (objectMapper.readValue(bodyDe, Map::class.java)["movies"] as List<Map<String, Any>>)[0]
+        @Suppress("UNCHECKED_CAST")
+        val movieUs = (objectMapper.readValue(bodyUs, Map::class.java)["movies"] as List<Map<String, Any>>)[0]
+
+        @Suppress("UNCHECKED_CAST")
+        val providersDe = movieDe["providers"] as List<Map<String, Any>>
+        @Suppress("UNCHECKED_CAST")
+        val providersUs = movieUs["providers"] as List<Map<String, Any>>
+        assertEquals(8, providersDe[0]["providerId"], "DE session must carry DE's own resolved provider, never US's")
+        assertEquals("https://example.com/de", movieDe["watchLink"])
+        assertEquals(337, providersUs[0]["providerId"], "US session must carry US's own resolved provider, never DE's")
+        assertEquals("https://example.com/us", movieUs["watchLink"])
+    }
+
+    @Test
+    fun `the deck endpoint ignores a client-supplied region or provider query parameter -- the outbound query matches a request without them`() {
+        val session = createSession()
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(session["joinCode"] as String, "Mallory")["token"] as String
+
+        enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .param("region", "US")
+                .param("provider", "999")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+
+        val discoverRequest = takeRecordedRequest()
+        assertFalse(discoverRequest.requestLine.contains("with_watch_providers"), discoverRequest.requestLine)
+        assertFalse(discoverRequest.requestLine.contains("watch_region"), discoverRequest.requestLine)
+        repeat(5) { takeRecordedRequest() }
+    }
+
+    @Test
+    fun `two different participants of the same session receive identical deck filtering`() {
+        enqueueJson(WATCH_PROVIDER_LIST_FIXTURE)
+        val session = createSession("""{"region":"DE","providerIds":[8]}""")
+        val sessionId = session["sessionId"] as String
+        val joinCode = session["joinCode"] as String
+        val aliceToken = joinSession(joinCode, "Nadia")["token"] as String
+        val bobToken = joinSession(joinCode, "Oscar")["token"] as String
+
+        enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
+        enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
+
+        val aliceBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $aliceToken")
+        ).andExpect(status().isOk).andReturn().response.contentAsString
+
+        val before = requestCount()
+        val bobBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $bobToken")
+        ).andExpect(status().isOk).andReturn().response.contentAsString
+
+        // The second participant's read is a cache hit for the same session-driven filter combo
+        // -- zero further upstream calls -- and, timestamp field aside, identical deck content.
+        assertEquals(0, requestCount() - before)
+        @Suppress("UNCHECKED_CAST")
+        val aliceDeck = objectMapper.readValue(aliceBody, Map::class.java) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val bobDeck = objectMapper.readValue(bobBody, Map::class.java) as Map<String, Any>
+        assertEquals(aliceDeck["movies"], bobDeck["movies"])
+        assertEquals(aliceDeck["totalResults"], bobDeck["totalResults"])
     }
 }
