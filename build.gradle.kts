@@ -40,9 +40,13 @@ dependencies {
 	implementation("org.flywaydb:flyway-database-postgresql")  // Flyway PostgreSQL dialect module
 	implementation("org.postgresql:postgresql")  // PostgreSQL JDBC driver
 
+	implementation("org.springframework.boot:spring-boot-starter-webclient")  // Outbound-only reactive HTTP client (WebClient.Builder auto-config) for calling TMDB — narrower than -webflux, no reactive server
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.11.0")  // Bridges WebClient's reactive Mono into suspend functions (awaitSingle)
+
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")  // Spring's @ServiceConnection Testcontainers integration
 	testImplementation("org.testcontainers:testcontainers-postgresql")  // Testcontainers Postgres module (2.0.x artifact id)
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")  // Testcontainers JUnit 5 integration
+	testImplementation("com.squareup.okhttp3:mockwebserver3:5.5.0")  // Fake HTTP server for testing MovieCatalogClient without hitting real TMDB
 }
 
 
