@@ -18,6 +18,7 @@ import java.util.UUID
 class DeckController(
     private val movieCatalogService: MovieCatalogService,
     private val sessionRepository: SessionRepository,
+    private val catalogReferenceService: CatalogReferenceService,
 ) {
 
     // Requiring @CurrentParticipant is deliberate and is this endpoint's access control:
@@ -35,6 +36,11 @@ class DeckController(
         sessionRepository.findById(sessionId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "No such session")
         }
+
+        // Ordering matters: validating before the outbound call is what stops an arbitrary
+        // integer from ever reaching the third-party TMDB URL. requireKnownGenre no-ops when
+        // genre is null.
+        catalogReferenceService.requireKnownGenre(genre)
 
         // This plan sources no provider or region; Plan 03-04 replaces those two arguments with
         // the session's stored selection.

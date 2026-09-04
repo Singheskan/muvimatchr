@@ -18,6 +18,10 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.ObjectMapper
 
+private const val GENRE_FIXTURE = """
+{ "genres": [ {"id": 28, "name": "Action"}, {"id": 18, "name": "Drama"} ] }
+"""
+
 private const val DISCOVER_FIXTURE = """
 {
   "page": 1,
@@ -46,11 +50,17 @@ class DeckControllerTest : TmdbMockServerSupport() {
     lateinit var deckCacheRepository: DeckCacheRepository
 
     @Autowired
+    lateinit var genreRepository: GenreRepository
+
+    @Autowired
     lateinit var jdbcTemplate: JdbcTemplate
 
     @BeforeEach
     fun clearDeckCache() {
         deckCacheRepository.deleteAll()
+        // The genre validation lookup is lazy-on-miss just like the deck cache; clearing it here
+        // keeps each test's request-count assertions deterministic regardless of test order.
+        genreRepository.deleteAll()
     }
 
     private fun createSession(): Map<String, Any> {
@@ -85,6 +95,9 @@ class DeckControllerTest : TmdbMockServerSupport() {
         val joinResponse = joinSession(joinCode, "Alice")
         val token = joinResponse["token"] as String
 
+        // requireKnownGenre runs before the discover call, so the genre-list fixture (populating
+        // the validation domain with id 28) must be enqueued first.
+        enqueueJson(GENRE_FIXTURE)
         enqueueJson(DISCOVER_FIXTURE)
 
         val responseBody = mockMvc.perform(
@@ -112,6 +125,8 @@ class DeckControllerTest : TmdbMockServerSupport() {
         assertEquals(listOf(18, 53), first["genreIds"])
         assertEquals(8.4, first["voteAverage"])
 
+        val genreRequest = takeRecordedRequest()
+        assertTrue(genreRequest.requestLine.contains("/genre/movie/list"), "expected the genre-list validation request first, got ${genreRequest.requestLine}")
         val recorded = takeRecordedRequest()
         val requestLine = recorded.requestLine
         assertTrue(requestLine.contains("with_genres=28"), "expected with_genres=28 in $requestLine")
@@ -169,5 +184,75 @@ class DeckControllerTest : TmdbMockServerSupport() {
                 )
             }
         }
+    }
+
+    @Test
+    fun `GET deck with a genre id present in the cached genre list succeeds and validates before the discover call`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(joinCode, "Frank")["token"] as String
+
+        enqueueJson(GENRE_FIXTURE)
+        enqueueJson(DISCOVER_FIXTURE)
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .param("genre", "28")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+
+        val genreRequest = takeRecordedRequest()
+        assertTrue(genreRequest.requestLine.contains("/genre/movie/list"), "expected the genre-list request first, got ${genreRequest.requestLine}")
+        val discoverRequest = takeRecordedRequest()
+        assertTrue(discoverRequest.requestLine.contains("with_genres=28"), "expected the discover request second, got ${discoverRequest.requestLine}")
+    }
+
+    @Test
+    fun `GET deck with an unknown genre id returns 400 and triggers no additional discover call`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(joinCode, "Grace")["token"] as String
+
+        // Only the genre-list fixture is enqueued -- if the code incorrectly proceeded to a
+        // discover call anyway, MockWebServer would have nothing matching to serve and the test
+        // would fail loudly rather than silently passing.
+        enqueueJson(GENRE_FIXTURE)
+        val before = requestCount()
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .param("genre", "9999")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isBadRequest)
+
+        assertEquals(1, requestCount() - before, "expected exactly one request (the genre-list validation fetch), no discover call")
+        val recorded = takeRecordedRequest()
+        assertTrue(recorded.requestLine.contains("/genre/movie/list"), "expected only the genre-list request, got ${recorded.requestLine}")
+    }
+
+    @Test
+    fun `GET deck with no genre at all succeeds without performing any genre validation lookup`() {
+        val session = createSession()
+        val joinCode = session["joinCode"] as String
+        val sessionId = session["sessionId"] as String
+        val token = joinSession(joinCode, "Heidi")["token"] as String
+
+        val before = requestCount()
+        enqueueJson(DISCOVER_FIXTURE)
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+
+        // requireKnownGenre(null) is a no-op -- only the discover call happened, no genre-list fetch.
+        assertEquals(1, requestCount() - before)
+        val recorded = takeRecordedRequest()
+        assertFalse(recorded.requestLine.contains("/genre/movie/list"), "expected no genre-list request, got ${recorded.requestLine}")
     }
 }
