@@ -50,31 +50,52 @@ class DeckController(
         // prevent.
         val result = movieCatalogService.getDeck(genre, session.providerIds, session.region)
 
-        return DeckResponse(
-            sessionId = sessionId,
-            status = "ok",
-            stale = result.stale,
-            fetchedAt = result.fetchedAt,
-            totalResults = result.totalResults,
-            movies = result.movies.map { movie ->
-                DeckMovieResponse(
-                    tmdbId = movie.tmdbId,
-                    title = movie.title,
-                    posterPath = movie.posterPath,
-                    genreIds = movie.genreIds,
-                    voteAverage = movie.voteAverage,
-                    releaseDate = movie.releaseDate,
-                    overview = movie.overview,
-                    providers = movie.providers.map { DeckProviderResponse(it.providerId, it.providerName, it.logoPath) },
-                    watchLink = movie.watchLink,
-                )
-            },
-        )
+        // D-06: the sparse determination is made here, when shaping the response, not inside
+        // MovieCatalogService.getDeck's refresh/cache logic above -- that call already read and
+        // (on a cold refresh) wrote the cache normally for this exact filter combination, so a
+        // sparse combination is cached under the same single rule as every other one, and a
+        // repeated request for it inside the TTL costs zero further upstream calls. totalResults
+        // carries the actual resolved count either way, so a caller can tell "none at all" from
+        // "nearly enough" -- do not substitute, widen or backfill from an unfiltered query to
+        // reach the threshold; that would silently show the user exactly the content their filter
+        // excluded (see this plan's prohibition).
+        return if (result.totalResults < MINIMUM_DECK_SIZE) {
+            DeckResponse(
+                sessionId = sessionId,
+                status = "insufficient_results",
+                stale = result.stale,
+                fetchedAt = result.fetchedAt,
+                totalResults = result.totalResults,
+                movies = emptyList(),
+            )
+        } else {
+            DeckResponse(
+                sessionId = sessionId,
+                status = "ok",
+                stale = result.stale,
+                fetchedAt = result.fetchedAt,
+                totalResults = result.totalResults,
+                movies = result.movies.map { movie ->
+                    DeckMovieResponse(
+                        tmdbId = movie.tmdbId,
+                        title = movie.title,
+                        posterPath = movie.posterPath,
+                        genreIds = movie.genreIds,
+                        voteAverage = movie.voteAverage,
+                        releaseDate = movie.releaseDate,
+                        overview = movie.overview,
+                        providers = movie.providers.map { DeckProviderResponse(it.providerId, it.providerName, it.logoPath) },
+                        watchLink = movie.watchLink,
+                    )
+                },
+            )
+        }
     }
 }
 
-// The `status` field is a discriminator whose other value, `insufficient_results`, Plan 03-05
-// introduces for D-06; declaring it now keeps Phase 6's branching contract stable.
+// The `status` field is a discriminator with two values in use: `ok` (a sufficient deck, movies
+// populated) and `insufficient_results` (D-06 -- fewer than MINIMUM_DECK_SIZE movies matched,
+// movies deliberately empty, totalResults still carries the true count).
 data class DeckResponse(
     val sessionId: UUID,
     val status: String,

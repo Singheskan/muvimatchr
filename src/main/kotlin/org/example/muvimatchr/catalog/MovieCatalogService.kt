@@ -18,6 +18,12 @@ import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
+// D-06's floor: a filter combination resolving to fewer than this many movies is not returned as
+// a thin deck -- DeckController branches on it to build the insufficient_results envelope instead.
+// Declared once here so the service, the controller and the tests share one definition rather
+// than three copies of the literal.
+const val MINIMUM_DECK_SIZE = 5
+
 @Service
 class MovieCatalogService(
     private val deckCacheRepository: DeckCacheRepository,
