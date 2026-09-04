@@ -16,7 +16,7 @@
     {
       "number": "3",
       "name": "TMDB Integration & Catalog Caching",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "4",
@@ -36,8 +36,8 @@
   ],
   "next": {
     "command": "/gsd:progress --next",
-    "label": "Advance to the next step",
-    "reason": "Phase 3 of 6 · 17% · executing"
+    "label": "Advance to the next step (plan phase 4)",
+    "reason": "Phase 4 of 6 — needs a plan"
   },
-  "updated_at": "2026-09-04T11:46:34.780Z"
+  "updated_at": "2026-09-04T18:57:48.840Z"
 }

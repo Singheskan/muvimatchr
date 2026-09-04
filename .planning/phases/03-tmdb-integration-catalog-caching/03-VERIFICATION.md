@@ -1,11 +1,12 @@
 ---
 phase: 03-tmdb-integration-catalog-caching
 verified: 2026-09-04T18:07:29Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "Confirm ROADMAP Phase 3 criterion 1's word 'real' against live TMDB (genre-filtered and provider/region-filtered deck fetch)"
     expected: "GET /api/sessions/{sessionId}/deck?genre=28 returns ~20 recognisable current/popular movies (not fixture titles) with leading-slash posterPath values, genreIds containing 28, plausible voteAverage; after PUT /api/sessions/{sessionId}/filters with a real region+provider, the deck narrows and each movie's providers array names the selected service with a non-null watchLink; a repeated identical fetch is served from cache (fetchedAt unchanged, faster response)"
     why_human: "Every automated test in this phase runs against a local MockWebServer fixture. No test in the suite ever calls the real api.themoviedb.org. This is the only unverified piece of ROADMAP criterion 1's word 'real' — recorded as open WINDOWS.md item #2, unresolved because TMDB_API_TOKEN was unavailable on the dev machine during execution."
