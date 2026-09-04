@@ -85,7 +85,30 @@ Plans:
   4. A second deck request for the same filters within the cache TTL does not trigger a new upstream TMDB call (verified via call-count or log assertion), confirming server-side caching is working.
   5. No response reaching the frontend, and no frontend-bundled code, ever contains the TMDB API key — all TMDB calls are backend-proxied.
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Tracer: a genre-filtered deck wired end-to-end from TMDB through a filter-keyed Postgres JSONB cache to an authenticated endpoint, with the credential proven never to reach the caller
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Session region and multi-select streaming-provider selection, optional at creation and replaceable by any participant
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — Genre and per-region watch-provider reference caches with a long TTL, plus rejection of unknown filter ids before they reach an outbound URL or stored state
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-04-PLAN.md — Region-aware provider filtering driven by the session row, and per-movie streaming availability resolved under a bounded concurrency budget on the refresh path only
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 03-05-PLAN.md — Outage degradation (retry, then serve stale labelled as stale, then fail explicitly) and the explicit insufficient-results response for sparse filter combinations
+
+*Note: the five plans run in five sequential waves. Plan 03-02 shares no source file with 03-01 and would otherwise be parallelisable, but each of 03-01, 03-02 and 03-03 adds a Flyway migration, and a lower-numbered migration landing after a higher-numbered one has already run is the out-of-order condition Flyway refuses on a persistent database. Plans 03-03 through 03-05 additionally share `MovieCatalogClient.kt`, `MovieCatalogService.kt` and `DeckController.kt`.*
 
 ### Phase 4: Vote Recording & Match Aggregation
 
@@ -140,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
-| 3. TMDB Integration & Catalog Caching | 0/TBD | Not started | - |
+| 3. TMDB Integration & Catalog Caching | 0/5 | Planned | - |
 | 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
 | 6. Frontend SPA | 0/TBD | Not started | - |
