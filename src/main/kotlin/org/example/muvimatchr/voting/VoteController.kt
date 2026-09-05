@@ -67,7 +67,15 @@ class VoteController(
     }
 
     private fun SessionVoteStatus.toResponse() =
-        VoteStatusResponse(sessionId = sessionId, deckSize = deckSize, activeCount = activeCount, finishedCount = finishedCount, isComplete = isComplete)
+        VoteStatusResponse(
+            sessionId = sessionId,
+            deckSize = deckSize,
+            activeCount = activeCount,
+            finishedCount = finishedCount,
+            isComplete = isComplete,
+            matchedMovieIds = matchedMovieIds,
+            likeCounts = likeCounts.map { MovieLikeCountResponse(it.movieId, it.likeCount) },
+        )
 }
 
 data class VoteRequest(val movieId: Long, val choice: VoteChoice)
@@ -83,4 +91,8 @@ data class VoteStatusResponse(
     // explicitly so API consumers see the field name the DTO actually declares.
     @get:JsonProperty("isComplete")
     val isComplete: Boolean,
+    val matchedMovieIds: List<Long>,
+    val likeCounts: List<MovieLikeCountResponse>,
 )
+
+data class MovieLikeCountResponse(val movieId: Long, val likeCount: Int)
