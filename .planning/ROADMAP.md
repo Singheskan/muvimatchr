@@ -123,7 +123,21 @@ Plans:
   4. "Has everyone finished" is computed against the live/current participant roster: a participant who joins mid-session after others already finished correctly flips the state back to "not everyone finished" until they finish too, and a two-concurrent-clients test where two participants submit their final vote at the same moment triggers match computation exactly once (no double-trigger, no missed trigger).
   5. A query against the vote table can return per-movie like counts (not just a single winner flag), confirming the data model supports a future ranked list without a schema change.
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Tracer: a session's deck pinned on first read, one swipe persisted through a session-scoped locked transaction, and a live status computed from the database, wired end-to-end
+
+**Wave 2** *(blocked on Wave 1 completion; these two share no source file and run in parallel)*
+
+- [ ] 04-02-PLAN.md — Genre promoted from a request parameter to session state, and region/providers/genre locked together the moment the deck is pinned
+- [ ] 04-03-PLAN.md — Unanimous-match and per-movie like-count projections over the live active roster, with the inactivity rule proven non-sticky and non-destructive
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-04-PLAN.md — Ten synchronised simultaneous finishes completing exactly once, plus service-path vote and pinned-deck durability across a real restart
 
 ### Phase 5: Real-Time Notification Layer
 
@@ -164,6 +178,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
 | 3. TMDB Integration & Catalog Caching | 5/5 | Complete    | 2026-09-04 |
-| 4. Vote Recording & Match Aggregation | 0/TBD | Not started | - |
+| 4. Vote Recording & Match Aggregation | 0/4 | Not started | - |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
 | 6. Frontend SPA | 0/TBD | Not started | - |
