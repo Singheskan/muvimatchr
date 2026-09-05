@@ -98,7 +98,11 @@ class DeckController(
             DeckResponse(
                 sessionId = sessionId,
                 status = "ok",
-                stale = false,
+                // result.stale (this caller's own fetch), not a hardcoded false: the pinned Session
+                // row carries no stale flag of its own, so this caller's fetch outcome is the only
+                // signal available -- and in the common (non-racing) case it IS the fetch that
+                // produced pinnedMovies.
+                stale = result.stale,
                 fetchedAt = pinnedSession.deckPinnedAt!!,
                 totalResults = pinnedMovies.size,
                 movies = pinnedMovies.map { it.toDeckMovieResponse() },
