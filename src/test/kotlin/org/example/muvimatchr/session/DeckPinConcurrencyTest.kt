@@ -13,6 +13,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
+import tools.jackson.core.type.TypeReference
+import tools.jackson.databind.ObjectMapper
 
 // WR-03: mirrors VoteServiceConcurrencyTest's structure -- N threads released by a single
 // CountDownLatch starting gun (never a fixed-duration sleep), repeated across several
@@ -33,7 +35,22 @@ class DeckPinConcurrencyTest : PostgresTestSupport() {
     @Autowired
     lateinit var dataSource: DataSource
 
+    @Autowired
+    lateinit var objectMapper: ObjectMapper
+
     private val racingThreadCount = 3
+
+    // Postgres's jsonb column type does not preserve object-key order or whitespace on round-trip
+    // (Postgres docs: "the jsonb data type does not preserve white space, does not preserve the
+    // order of object keys"). A caller's own in-process return value (the exact string Jackson just
+    // serialized, never round-tripped through the column) is therefore NOT expected to be
+    // byte-for-byte identical to what a later `findById` reads back from the database, even when
+    // both describe the exact same movies. Comparing the parsed structure -- not the raw JSON text
+    // -- is what "the same persisted snapshot" actually means here.
+    private fun parseMovies(json: String?): List<CachedMovie> {
+        if (json == null) return emptyList()
+        return objectMapper.readValue(json, object : TypeReference<List<CachedMovie>>() {})
+    }
 
     private fun newSession(): Session =
         sessionRepository.save(Session(joinCode = UUID.randomUUID().toString().take(16)))
@@ -96,9 +113,13 @@ class DeckPinConcurrencyTest : PostgresTestSupport() {
                 }
 
                 // First writer wins: every racing call's returned Session must report the exact
-                // same pinnedDeckJson -- the "loser" calls no-op and return the winner's already
-                // -committed snapshot rather than each thread persisting its own proposal.
-                val distinctSnapshots = results.map { it.pinnedDeckJson }.toSet()
+                // same persisted movie list -- the "loser" calls no-op and return the winner's
+                // already-committed snapshot rather than each thread persisting its own proposal.
+                // Compared structurally (parsed movies), not as raw JSON text: jsonb round-trips
+                // through Postgres do not preserve object-key order, so the winner's own in-process
+                // return value (never round-tripped) is not expected to be byte-identical to a
+                // loser's freshly-read value even when both describe the same movies.
+                val distinctSnapshots = results.map { parseMovies(it.pinnedDeckJson) }.toSet()
                 assertEquals(
                     1, distinctSnapshots.size,
                     "Iteration $iteration: all $racingThreadCount racing pinDeck calls must return the same " +
@@ -108,7 +129,7 @@ class DeckPinConcurrencyTest : PostgresTestSupport() {
                 val persisted = sessionRepository.findById(sessionId).get()
                 assertTrue(persisted.deckPinnedAt != null, "Iteration $iteration: session must be pinned after the race")
                 assertEquals(
-                    persisted.pinnedDeckJson, distinctSnapshots.single(),
+                    parseMovies(persisted.pinnedDeckJson), distinctSnapshots.single(),
                     "Iteration $iteration: every racing caller's response must match the canonical persisted " +
                         "snapshot every later reader will be served -- this is CR-01's invariant",
                 )
