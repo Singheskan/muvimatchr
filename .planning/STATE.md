@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 current_phase: 04
 current_phase_name: Vote Recording & Match Aggregation
-status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-09-05T07:56:26.157Z"
+status: verifying
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-09-05T08:03:44.341Z"
 last_activity: 2026-09-05
 last_activity_desc: Phase 04 execution started
-state_head: d64ce27575d8144056bfd4b390b501b714503111
+state_head: 25a02836c0a1cddacd981d237946a11a67dfcc35
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
   percent: 33
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-04)
 
 Phase: 04 (Vote Recording & Match Aggregation) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-05 — Phase 04 execution started
 
 Progress: [███░░░░░░░] 33% (Phase 03 of 6 complete)
@@ -85,6 +85,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Phase 04 P01 | 25min | 2 tasks | 12 files |
 | Phase 04 P02 | 42min | 2 tasks | 5 files |
 | Phase 04 P03 | 30min | 2 tasks | 4 files |
+| Phase 04 P04 | 20min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ Recent decisions affecting current work:
 - [Phase 04]: Phase 4 Plan 2: the D-03 genre-inertness invariant test uses a single session/single deck GET, not a two-session comparison -- two sessions sharing an identical filter combination would hit the same deck-cache row and leave enqueued MockWebServer fixtures unconsumed, corrupting later tests' response ordering.
 - [Phase 04]: [Phase 04]: Phase 4 Plan 3: unanimousMovieIds short-circuits on empty active-participant collection before querying (empty IN () is rejected by Postgres, and is also the correct empty-roster answer); perMovieLikeCounts is deliberately unfiltered by roster/unanimity so RSLT-03's future ranked list needs no schema change.
 - [Phase 04]: [Phase 04]: Phase 4 Plan 3: idle-participant tests backdate vote.voted_at/participant.created_at via jdbcTemplate rather than Thread.sleep or a shrunken test-only timeout, exercising the real 60s production inactivity window deterministically.
+- [Phase 04]: [Phase 04]: Phase 4 Plan 4: VoteServiceConcurrencyTest asserts Hikari maximumPoolSize exceeds the racing thread count once, inside the race test itself, ruling out the connection pool as an accidental serialiser before trusting the ten-iteration race's result.
+- [Phase 04]: [Phase 04]: Phase 4 Plan 4: RestartSurvivalTest's new service-path durability method reads the post-restart vote row via a direct jdbcTemplate query, not VoteRepository, matching the file's existing flyway_schema_history precedent and keeping the assertion independent of the repository layer under test elsewhere.
 
 ### Pending Todos
 
@@ -137,6 +140,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-05T07:56:26.035Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-09-05T08:03:44.215Z
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None

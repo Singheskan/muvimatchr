@@ -123,7 +123,7 @@ Plans:
   4. "Has everyone finished" is computed against the live/current participant roster: a participant who joins mid-session after others already finished correctly flips the state back to "not everyone finished" until they finish too, and a two-concurrent-clients test where two participants submit their final vote at the same moment triggers match computation exactly once (no double-trigger, no missed trigger).
   5. A query against the vote table can return per-movie like counts (not just a single winner flag), confirming the data model supports a future ranked list without a schema change.
 
-**Plans**: 3/4 plans executed
+**Plans**: 4/4 plans executed
 
 Plans:
 **Wave 1**
@@ -137,7 +137,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-04-PLAN.md — Ten synchronised simultaneous finishes completing exactly once, plus service-path vote and pinned-deck durability across a real restart
+- [x] 04-04-PLAN.md — Ten synchronised simultaneous finishes completing exactly once, plus service-path vote and pinned-deck durability across a real restart
 
 ### Phase 5: Real-Time Notification Layer
 
@@ -178,6 +178,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Persistence Foundation | 3/3 | Complete | 2026-09-02 |
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
 | 3. TMDB Integration & Catalog Caching | 5/5 | Complete    | 2026-09-04 |
-| 4. Vote Recording & Match Aggregation | 3/4 | In Progress|  |
+| 4. Vote Recording & Match Aggregation | 4/4 | In Progress|  |
 | 5. Real-Time Notification Layer | 0/TBD | Not started | - |
 | 6. Frontend SPA | 0/TBD | Not started | - |
