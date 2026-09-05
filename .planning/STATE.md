@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 current_phase: 04
 current_phase_name: Vote Recording & Match Aggregation
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-09-05T06:24:50.963Z"
-last_activity: 2026-09-04
-last_activity_desc: Phase 03 complete, transitioned to Phase 4
-state_head: 06c5633d87c64398b7e8b930a9e5299ed1a57509
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-09-05T07:02:48.807Z"
+last_activity: 2026-09-05
+last_activity_desc: Phase 04 execution started
+state_head: 9c322d8470091c76738036e7659241b3c66d0b83
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 2
   total_plans: 14
-  completed_plans: 10
+  completed_plans: 11
   percent: 33
 ---
 
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-04)
 
 **Core value:** Two (or more) people with different tastes can independently pick movies they'd watch and get a fast, confident answer to "what do we actually both want to watch tonight" — without the back-and-forth debate.
-**Current focus:** Phase 4 — Vote Recording & Match Aggregation
+**Current focus:** Phase 04 — Vote Recording & Match Aggregation
 
 ## Current Position
 
-Phase: 04 (Vote Recording & Match Aggregation) — READY TO EXECUTE
-Plan: Not started
+Phase: 04 (Vote Recording & Match Aggregation) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-09-04 — Phase 03 complete, transitioned to Phase 4
+Last activity: 2026-09-05 — Phase 04 execution started
 
-Progress: [█████░░░░░] 50% (Phase 03 of 6 complete)
+Progress: [███░░░░░░░] 33% (Phase 03 of 6 complete)
 
 ## Phase 1 Verification Summary
 
@@ -82,6 +82,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 |------|----------|-------|-------|
 | Phase 02 P01 | 35min | 2 tasks | 15 files |
 | Phase 02 P02 | 15min | 2 tasks | 4 files |
+| Phase 04 P01 | 25min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,8 @@ Recent decisions affecting current work:
 - [Phase 03]: Deck cache keyed by (genre, providerIds, region) only — never session/participant — so identical filter combos across different sessions share one cache row and one TTL window; CTLG-04's "not re-fetched per deck load" reading confirmed at the filter-combo level, not per-session.
 - [Phase 03]: `with_watch_monetization_types` deliberately never sent to TMDB (COVERAGE.md OPT-OUT) — live-verified the omitted-parameter default is the broadest match (flatrate+rent+buy+ads), not the narrowest. App has no UI concept of subscription-vs-rental, so one merged "where to watch" list is correct.
 - [Phase 03]: Live TMDB UAT (with a real `TMDB_API_TOKEN`) found and fixed two defects the MockWebServer-only test suite could not catch: (1) `TmdbRegionalAvailability`'s Kotlin/Jackson defaulting broke whenever TMDB omitted a monetization-category JSON key entirely (the common real-world shape — nearly all of a movie's ~126 regions omit `ads`, ~40% omit `rent`/`buy`); (2) CR-04's retry predicate never matched Spring WebClient's actual wrapped-exception shape (`WebClientRequestException` wrapping the real `IOException`). Both fixed in `831ba1e`, both live-verified post-fix. Lesson: fixture-based tests that always include every optional JSON key, or that only simulate HTTP-status failures, can hide entire classes of real-world defects — worth a standing reminder for future phases with external-API integration.
+- [Phase 04]: Phase 4 Plan 1: Pinned-branch totalResults reports pinnedMovies.size, not the raw upstream TMDB total captured at first fetch -- the pinned deck's true candidate count.
+- [Phase 04]: Phase 4 Plan 1: Deck caching is keyed by filter combination, not session -- test helper must clear deckCacheRepository before every pin to avoid cross-call/cross-test fixture leakage.
 
 ### Pending Todos
 
@@ -128,6 +131,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-04T19:30:24.830Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-vote-recording-match-aggregation/04-CONTEXT.md
+Last session: 2026-09-05T07:02:48.688Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
