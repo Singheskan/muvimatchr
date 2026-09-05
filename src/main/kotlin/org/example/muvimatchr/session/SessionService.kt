@@ -60,6 +60,12 @@ class SessionService(
     fun replaceFilters(sessionId: UUID, region: String?, providerIds: List<Int>, genreId: Int?): Session {
         val session = sessionRepository.findById(sessionId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "No session with id $sessionId") }
+        // D-02: once the deck is pinned, region/providerIds/genre together are locked. Refusing
+        // loudly with 409 is the point -- silently accepting and discarding the request would leave
+        // a group believing it had re-filtered a deck that never changed.
+        if (session.deckPinnedAt != null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Session filters are locked once the deck is pinned")
+        }
         session.region = region ?: DEFAULT_REGION
         session.providerIds = providerIds
         session.genre = genreId
