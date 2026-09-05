@@ -512,15 +512,18 @@ class DeckControllerTest : TmdbMockServerSupport() {
 
     @Test
     fun `a stale cache row served after an upstream outage surfaces as a 200 with stale true`() {
-        val session = createSession()
-        val sessionId = session["sessionId"] as String
-        val token = joinSession(session["joinCode"] as String, "Quentin")["token"] as String
+        // Session A's GET is the cache-warming call -- it also pins A (D-04), so A can never
+        // travel the catalog path a second time. A second, unpinned session B is what actually
+        // exercises the stale-fallback path below.
+        val sessionA = createSession()
+        val sessionIdA = sessionA["sessionId"] as String
+        val tokenA = joinSession(sessionA["joinCode"] as String, "Quentin")["token"] as String
 
         enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
         enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
         mockMvc.perform(
-            get("/api/sessions/$sessionId/deck")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            get("/api/sessions/$sessionIdA/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenA")
         ).andExpect(status().isOk)
 
         val cacheKey = buildDeckCacheKey(null, emptyList(), "DE")
@@ -530,12 +533,18 @@ class DeckControllerTest : TmdbMockServerSupport() {
             cacheKey,
         )
 
+        // Session B has the same region/provider selection, so it resolves the same cache key,
+        // and it has never been pinned, so its first deck GET still travels the catalog path.
+        val sessionB = createSession()
+        val sessionIdB = sessionB["sessionId"] as String
+        val tokenB = joinSession(sessionB["joinCode"] as String, "Quentin's Plus One")["token"] as String
+
         // RETRY_MAX_ATTEMPTS=3 -> 1 initial attempt + 3 retries = 4 total attempts before exhaustion.
         repeat(4) { enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE, status = 500) }
 
         val responseBody = mockMvc.perform(
-            get("/api/sessions/$sessionId/deck")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            get("/api/sessions/$sessionIdB/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenB")
         )
             .andExpect(status().isOk)
             .andReturn()
@@ -589,6 +598,15 @@ class DeckControllerTest : TmdbMockServerSupport() {
         @Suppress("UNCHECKED_CAST")
         val movies = deck["movies"] as List<Map<String, Any>>
         assertTrue(movies.isEmpty(), "expected an empty movies list, not a thin deck of the four matches")
+
+        // D-06/Pitfall D: a below-minimum result must leave deck_pinned_at null so the group can
+        // still widen its filters.
+        val deckPinnedAt = jdbcTemplate.queryForObject(
+            "SELECT deck_pinned_at FROM session WHERE id = CAST(? AS uuid)",
+            java.sql.Timestamp::class.java,
+            sessionId,
+        )
+        assertEquals(null, deckPinnedAt, "an insufficient-results deck must never be pinned")
     }
 
     @Test
@@ -615,6 +633,14 @@ class DeckControllerTest : TmdbMockServerSupport() {
         @Suppress("UNCHECKED_CAST")
         val movies = deck["movies"] as List<Map<String, Any>>
         assertEquals(5, movies.size, "five matches is the floor, not a threshold to also exclude")
+
+        // D-04: a successful ("ok") deck read pins the session.
+        val deckPinnedAt = jdbcTemplate.queryForObject(
+            "SELECT deck_pinned_at FROM session WHERE id = CAST(? AS uuid)",
+            java.sql.Timestamp::class.java,
+            sessionId,
+        )
+        assertTrue(deckPinnedAt != null, "expected deck_pinned_at to be set after a successful deck read")
     }
 
     @Test
@@ -701,29 +727,36 @@ class DeckControllerTest : TmdbMockServerSupport() {
 
     @Test
     fun `an insufficient-results deck for one filter combination never leaks movies from a full deck cached under a different combination`() {
-        val session = createSession()
-        val sessionId = session["sessionId"] as String
-        val token = joinSession(session["joinCode"] as String, "Yolanda")["token"] as String
+        // Session A's unfiltered GET establishes the full cached deck -- and pins A (D-04), so a
+        // second GET against A can never travel the catalog path again regardless of the genre
+        // parameter it carries. A second, unpinned session B is what actually exercises the
+        // sparse-filter-combination path below.
+        val sessionA = createSession()
+        val sessionIdA = sessionA["sessionId"] as String
+        val tokenA = joinSession(sessionA["joinCode"] as String, "Yolanda")["token"] as String
 
-        // Establish a full ("ok") cached deck under no genre filter first.
         enqueueJson(DISCOVER_FIXTURE)
         repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
         mockMvc.perform(
-            get("/api/sessions/$sessionId/deck")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            get("/api/sessions/$sessionIdA/deck")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenA")
         ).andExpect(status().isOk)
 
-        // A genre-filtered request against the same session resolves sparse -- a distinct cache
-        // key (Plan 03-01's D-07 key scoping), so it must not substitute the already-cached
-        // unfiltered deck's movies.
+        // A genre-filtered request against a second, unpinned session resolves sparse -- a
+        // distinct cache key (Plan 03-01's D-07 key scoping), so it must not substitute the
+        // already-cached unfiltered deck's movies.
+        val sessionB = createSession()
+        val sessionIdB = sessionB["sessionId"] as String
+        val tokenB = joinSession(sessionB["joinCode"] as String, "Yolanda's Plus One")["token"] as String
+
         enqueueJson(GENRE_FIXTURE)
         enqueueJson(FOUR_MOVIE_DISCOVER_FIXTURE)
         repeat(4) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         val responseBody = mockMvc.perform(
-            get("/api/sessions/$sessionId/deck")
+            get("/api/sessions/$sessionIdB/deck")
                 .param("genre", "28")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenB")
         )
             .andExpect(status().isOk)
             .andReturn()
@@ -747,8 +780,16 @@ class DeckControllerTest : TmdbMockServerSupport() {
         val aliceToken = joinSession(joinCode, "Nadia")["token"] as String
         val bobToken = joinSession(joinCode, "Oscar")["token"] as String
 
-        enqueueJson(SINGLE_MOVIE_DISCOVER_FIXTURE)
-        enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE)
+        // DISCOVER_FIXTURE's total_results (5) matches its actual movies count (5) -- unlike
+        // SINGLE_MOVIE_DISCOVER_FIXTURE, whose deliberately mismatched total_results/movies-count
+        // exists to test unrelated paging/threshold logic elsewhere. That mismatch would make
+        // totalResults an unstable field to compare here: D-04 pins the session on Alice's read,
+        // so Bob's read returns totalResults derived from the pinned snapshot's movie count, not
+        // the raw upstream total -- with a fixture where the two already agree, the comparison
+        // below stays a meaningful "identical deck" assertion rather than an artifact of which
+        // participant happened to trigger the pin.
+        enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         val aliceBody = mockMvc.perform(
             get("/api/sessions/$sessionId/deck")
@@ -761,8 +802,8 @@ class DeckControllerTest : TmdbMockServerSupport() {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $bobToken")
         ).andExpect(status().isOk).andReturn().response.contentAsString
 
-        // The second participant's read is a cache hit for the same session-driven filter combo
-        // -- zero further upstream calls -- and, timestamp field aside, identical deck content.
+        // The second participant's read is served from the pinned snapshot (D-04) -- zero further
+        // upstream calls -- and, timestamp field aside, identical deck content.
         assertEquals(0, requestCount() - before)
         @Suppress("UNCHECKED_CAST")
         val aliceDeck = objectMapper.readValue(aliceBody, Map::class.java) as Map<String, Any>
