@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
@@ -20,16 +19,17 @@ class DeckController(
     private val movieCatalogService: MovieCatalogService,
     private val sessionRepository: SessionRepository,
     private val sessionService: SessionService,
-    private val catalogReferenceService: CatalogReferenceService,
 ) {
 
     // Requiring @CurrentParticipant is deliberate and is this endpoint's access control:
     // without it the endpoint would be an unauthenticated relay that any anonymous caller
-    // could use to burn the application's TMDB rate budget.
+    // could use to burn the application's TMDB rate budget. This endpoint accepts no other
+    // request parameters at all -- region, providerIds and genre are all session-sourced (below);
+    // an id that never enters through this endpoint cannot be validated here, which is why
+    // requireKnownGenre lives at the two endpoints that do accept one (SessionController).
     @GetMapping("/{sessionId}/deck")
     fun getDeck(
         @PathVariable sessionId: UUID,
-        @RequestParam(required = false) genre: Int?,
         @CurrentParticipant participant: Participant,
     ): DeckResponse {
         if (participant.session.id != sessionId) {
@@ -40,9 +40,7 @@ class DeckController(
         }
 
         // D-01/D-04: once a deck has been pinned for this session, that snapshot is the sole
-        // source of truth from here on -- the incoming genre query parameter is intentionally
-        // ignored (same "session row, never a request parameter" precedent already established
-        // for region/providerIds below). No further upstream catalog request is made.
+        // source of truth from here on. No further upstream catalog request is made.
         if (session.deckPinnedAt != null) {
             val pinnedMovies = sessionService.pinnedMovies(session)
             return DeckResponse(
@@ -55,18 +53,16 @@ class DeckController(
             )
         }
 
-        // Ordering matters: validating before the outbound call is what stops an arbitrary
-        // integer from ever reaching the third-party TMDB URL. requireKnownGenre no-ops when
-        // genre is null.
-        catalogReferenceService.requireKnownGenre(genre)
-
-        // Region and provider selection come only from the session row -- never from a request
-        // parameter. This is what makes the filter a group-level decision: two participants of
-        // the same session always get the same filtering, because there is no per-client value
-        // for either field to disagree about. Do not add a convenience @RequestParam for either
-        // one; that would quietly reintroduce per-client divergence this endpoint is built to
-        // prevent.
-        val result = movieCatalogService.getDeck(genre, session.providerIds, session.region)
+        // Genre, region and provider selection all come only from the session row -- never from a
+        // request parameter. This is what makes the filter set a group-level decision: two
+        // participants of the same session always get the same filtering, because there is no
+        // per-client value for any of the three to disagree about. Do not add a convenience
+        // query-bound parameter for any of them; that would quietly reintroduce per-client
+        // divergence this endpoint is built to prevent. Genre was validated (requireKnownGenre) at
+        // the two endpoints that set it -- SessionController.createSession/replaceFilters -- before
+        // it was ever written here, so no further validation happens on this read path.
+        val genreId = session.genre
+        val result = movieCatalogService.getDeck(genreId, session.providerIds, session.region)
 
         // D-06: the sparse determination is made here, when shaping the response, not inside
         // MovieCatalogService.getDeck's refresh/cache logic above -- that call already read and
@@ -90,7 +86,7 @@ class DeckController(
             // D-06: a result below MINIMUM_DECK_SIZE must leave deck_pinned_at null so the group
             // can still widen its filters (04-RESEARCH.md Pitfall D) -- pinDeck is called only on
             // the branch below that returns status "ok".
-            sessionService.pinDeck(sessionId, genre, result.movies)
+            sessionService.pinDeck(sessionId, genreId, result.movies)
             DeckResponse(
                 sessionId = sessionId,
                 status = "ok",

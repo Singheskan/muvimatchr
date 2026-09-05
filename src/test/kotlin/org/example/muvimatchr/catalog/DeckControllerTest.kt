@@ -158,16 +158,21 @@ class DeckControllerTest : TmdbMockServerSupport() {
     }
 
     @Test
-    fun `GET deck with a genre filter returns real upstream movie data translated into the app's own DTOs`() {
-        val session = createSession()
+    fun `GET deck for a session created with a genre returns real upstream movie data translated into the app's own DTOs`() {
+        // requireKnownGenre now runs at session-creation time (D-03), so the genre-list fixture
+        // (populating the validation domain with id 28) must be enqueued before createSession, not
+        // before the deck GET.
+        enqueueJson(GENRE_FIXTURE)
+        val session = createSession("""{"genre":28}""")
         val joinCode = session["joinCode"] as String
         val sessionId = session["sessionId"] as String
         val joinResponse = joinSession(joinCode, "Alice")
         val token = joinResponse["token"] as String
+        // Drain the genre-list validation request createSession triggered above -- otherwise it
+        // sits at the head of the recorded-request queue and the assertion below would inspect it
+        // instead of the discover request.
+        takeRecordedRequest()
 
-        // requireKnownGenre runs before the discover call, so the genre-list fixture (populating
-        // the validation domain with id 28) must be enqueued first.
-        enqueueJson(GENRE_FIXTURE)
         enqueueJson(DISCOVER_FIXTURE)
         // Plan 03-04: the session's region (default DE) is always passed now, so the refresh path
         // resolves per-movie availability for all 5 fixture movies -- one fixture per movie.
@@ -175,7 +180,6 @@ class DeckControllerTest : TmdbMockServerSupport() {
 
         val responseBody = mockMvc.perform(
             get("/api/sessions/$sessionId/deck")
-                .param("genre", "28")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
         )
             .andExpect(status().isOk)
@@ -198,8 +202,6 @@ class DeckControllerTest : TmdbMockServerSupport() {
         assertEquals(listOf(18, 53), first["genreIds"])
         assertEquals(8.4, first["voteAverage"])
 
-        val genreRequest = takeRecordedRequest()
-        assertTrue(genreRequest.requestLine.contains("/genre/movie/list"), "expected the genre-list validation request first, got ${genreRequest.requestLine}")
         val recorded = takeRecordedRequest()
         val requestLine = recorded.requestLine
         assertTrue(requestLine.contains("with_genres=28"), "expected with_genres=28 in $requestLine")
@@ -263,63 +265,16 @@ class DeckControllerTest : TmdbMockServerSupport() {
     }
 
     @Test
-    fun `GET deck with a genre id present in the cached genre list succeeds and validates before the discover call`() {
+    fun `a session created with no genre performs no genre-list lookup, and its deck GET makes exactly the discover call plus one availability call per movie`() {
+        val beforeCreate = requestCount()
         val session = createSession()
-        val joinCode = session["joinCode"] as String
-        val sessionId = session["sessionId"] as String
-        val token = joinSession(joinCode, "Frank")["token"] as String
+        assertEquals(0, requestCount() - beforeCreate, "expected no genre-list lookup when no genre was supplied at session creation")
 
-        enqueueJson(GENRE_FIXTURE)
-        enqueueJson(DISCOVER_FIXTURE)
-        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
-
-        mockMvc.perform(
-            get("/api/sessions/$sessionId/deck")
-                .param("genre", "28")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
-        )
-            .andExpect(status().isOk)
-
-        val genreRequest = takeRecordedRequest()
-        assertTrue(genreRequest.requestLine.contains("/genre/movie/list"), "expected the genre-list request first, got ${genreRequest.requestLine}")
-        val discoverRequest = takeRecordedRequest()
-        assertTrue(discoverRequest.requestLine.contains("with_genres=28"), "expected the discover request second, got ${discoverRequest.requestLine}")
-        repeat(5) { takeRecordedRequest() }
-    }
-
-    @Test
-    fun `GET deck with an unknown genre id returns 400 and triggers no additional discover call`() {
-        val session = createSession()
-        val joinCode = session["joinCode"] as String
-        val sessionId = session["sessionId"] as String
-        val token = joinSession(joinCode, "Grace")["token"] as String
-
-        // Only the genre-list fixture is enqueued -- if the code incorrectly proceeded to a
-        // discover call anyway, MockWebServer would have nothing matching to serve and the test
-        // would fail loudly rather than silently passing.
-        enqueueJson(GENRE_FIXTURE)
-        val before = requestCount()
-
-        mockMvc.perform(
-            get("/api/sessions/$sessionId/deck")
-                .param("genre", "9999")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
-        )
-            .andExpect(status().isBadRequest)
-
-        assertEquals(1, requestCount() - before, "expected exactly one request (the genre-list validation fetch), no discover call")
-        val recorded = takeRecordedRequest()
-        assertTrue(recorded.requestLine.contains("/genre/movie/list"), "expected only the genre-list request, got ${recorded.requestLine}")
-    }
-
-    @Test
-    fun `GET deck with no genre at all succeeds without performing any genre validation lookup`() {
-        val session = createSession()
         val joinCode = session["joinCode"] as String
         val sessionId = session["sessionId"] as String
         val token = joinSession(joinCode, "Heidi")["token"] as String
 
-        val before = requestCount()
+        val beforeDeck = requestCount()
         enqueueJson(DISCOVER_FIXTURE)
         repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
@@ -331,10 +286,52 @@ class DeckControllerTest : TmdbMockServerSupport() {
 
         // requireKnownGenre(null) is a no-op -- no genre-list fetch. The discover call plus one
         // availability call per fixture movie (5) is what actually happened.
-        assertEquals(6, requestCount() - before)
+        assertEquals(6, requestCount() - beforeDeck)
         val recorded = takeRecordedRequest()
         assertFalse(recorded.requestLine.contains("/genre/movie/list"), "expected no genre-list request, got ${recorded.requestLine}")
         repeat(5) { takeRecordedRequest() }
+    }
+
+    // D-03's central invariant test: the deck a session serves is derived only from session
+    // state. A `genre` query parameter naming a different id than the one stored on the session
+    // must change neither the outbound discover request nor the returned deck. A second,
+    // parameter-free request against a session storing the same genre is deliberately NOT used
+    // here to prove this (it would resolve to the identical deck-cache key as this test's own
+    // session and silently short-circuit on the cache, consuming none of its own enqueued
+    // fixtures) -- the outbound discover request's `with_genres` value against the one call this
+    // test does make is itself sufficient proof that the parameter was never read.
+    @Test
+    fun `a genre query parameter on the deck GET is inert -- the outbound discover request comes only from the session's stored genre`() {
+        enqueueJson(GENRE_FIXTURE)
+        val session = createSession("""{"genre":28}""")
+        val token = joinSession(session["joinCode"] as String, "Nina")["token"] as String
+        // Drain the genre-list validation request createSession triggered above.
+        takeRecordedRequest()
+
+        enqueueJson(DISCOVER_FIXTURE)
+        repeat(5) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/${session["sessionId"]}/deck")
+                .param("genre", "18")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        val discoverRequest = takeRecordedRequest()
+        assertTrue(discoverRequest.requestLine.contains("with_genres=28"), "expected the session's stored genre 28, got ${discoverRequest.requestLine}")
+        assertFalse(discoverRequest.requestLine.contains("with_genres=18"), discoverRequest.requestLine)
+        repeat(5) { takeRecordedRequest() }
+
+        @Suppress("UNCHECKED_CAST")
+        val deck = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        assertEquals("ok", deck["status"])
+        @Suppress("UNCHECKED_CAST")
+        val movies = deck["movies"] as List<Map<String, Any>>
+        assertEquals(5, movies.size, "the query parameter must not have altered which fixture-backed deck was resolved")
     }
 
     @Test
@@ -742,20 +739,19 @@ class DeckControllerTest : TmdbMockServerSupport() {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenA")
         ).andExpect(status().isOk)
 
-        // A genre-filtered request against a second, unpinned session resolves sparse -- a
-        // distinct cache key (Plan 03-01's D-07 key scoping), so it must not substitute the
-        // already-cached unfiltered deck's movies.
-        val sessionB = createSession()
+        // A second, unpinned session created with a stored genre resolves sparse -- a distinct
+        // cache key (Plan 03-01's D-07 key scoping), so it must not substitute the already-cached
+        // unfiltered deck's movies.
+        enqueueJson(GENRE_FIXTURE)
+        val sessionB = createSession("""{"genre":28}""")
         val sessionIdB = sessionB["sessionId"] as String
         val tokenB = joinSession(sessionB["joinCode"] as String, "Yolanda's Plus One")["token"] as String
 
-        enqueueJson(GENRE_FIXTURE)
         enqueueJson(FOUR_MOVIE_DISCOVER_FIXTURE)
         repeat(4) { enqueueJson(MULTI_REGION_MOVIE_AVAILABILITY_FIXTURE) }
 
         val responseBody = mockMvc.perform(
             get("/api/sessions/$sessionIdB/deck")
-                .param("genre", "28")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenB")
         )
             .andExpect(status().isOk)

@@ -29,12 +29,12 @@ class SessionService(
     // failed statement, so a shared-transaction retry loop would break on the second attempt.
     // Each retry calls the plain `save()` Spring Data method, which is individually transactional,
     // so each attempt gets its own transaction.
-    fun createSession(region: String?, providerIds: List<Int>): Session {
+    fun createSession(region: String?, providerIds: List<Int>, genreId: Int? = null): Session {
         repeat(MAX_JOIN_CODE_ATTEMPTS) {
             val candidate = generateJoinCode()
             try {
                 return sessionRepository.save(
-                    Session(joinCode = candidate, region = region ?: DEFAULT_REGION, providerIds = providerIds)
+                    Session(joinCode = candidate, region = region ?: DEFAULT_REGION, providerIds = providerIds, genre = genreId)
                 )
             } catch (e: DataIntegrityViolationException) {
                 // CR-02: DataIntegrityViolationException is also what Postgres throws for an
@@ -52,15 +52,17 @@ class SessionService(
     }
 
     // A whole-selection replacement, not a partial merge: an empty provider list explicitly
-    // clears the provider filter, and a null region explicitly resets to the default. This
-    // method performs no check on who is calling — membership is verified in the controller,
-    // and D-02 makes membership the entire authorisation rule.
+    // clears the provider filter, a null genre explicitly clears the genre filter, and a null
+    // region explicitly resets to the default. This method performs no check on who is calling —
+    // membership is verified in the controller, and D-02 makes membership the entire
+    // authorisation rule.
     @Transactional
-    fun replaceFilters(sessionId: UUID, region: String?, providerIds: List<Int>): Session {
+    fun replaceFilters(sessionId: UUID, region: String?, providerIds: List<Int>, genreId: Int?): Session {
         val session = sessionRepository.findById(sessionId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "No session with id $sessionId") }
         session.region = region ?: DEFAULT_REGION
         session.providerIds = providerIds
+        session.genre = genreId
         return sessionRepository.save(session)
     }
 
