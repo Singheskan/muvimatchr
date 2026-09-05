@@ -29,7 +29,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **VOTE-02**: Every vote is persisted immediately (survives disconnect/refresh/restart)
 - [x] **VOTE-03**: Re-voting on a movie updates the existing vote rather than duplicating it
 - [x] **VOTE-04**: A movie is a "match" only if every currently-joined participant liked it (unanimous)
-- [ ] **VOTE-05**: "Has everyone finished?" is computed live against currently-joined participants, not a snapshot from session start
+- [x] **VOTE-05**: "Has everyone finished?" is computed live against currently-joined participants, not a snapshot from session start
 
 ### Real-Time Status
 
@@ -41,7 +41,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **RSLT-01**: Anyone opening the link after everyone's done sees results immediately, even if they weren't connected when voting finished
 - [ ] **RSLT-02**: Results screen shows the single best mutual match (poster, title, where to watch)
-- [ ] **RSLT-03**: Vote data is stored per-movie (counts, not just a boolean) so a ranked list can be added later without a data model change
+- [x] **RSLT-03**: Vote data is stored per-movie (counts, not just a boolean) so a ranked list can be added later without a data model change
 - [ ] **RELI-01**: Session/participant/vote data lives in a real database and survives a server restart
 
 ## v2 Requirements
@@ -93,13 +93,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VOTE-02 | Phase 4 | Complete |
 | VOTE-03 | Phase 4 | Complete |
 | VOTE-04 | Phase 4 | Complete |
-| VOTE-05 | Phase 4 | Pending |
+| VOTE-05 | Phase 4 | Complete |
 | RTIME-01 | Phase 5 | Pending |
 | RTIME-02 | Phase 5 | Pending |
 | RTIME-03 | Phase 5 | Pending |
 | RSLT-01 | Phase 6 | Pending |
 | RSLT-02 | Phase 6 | Pending |
-| RSLT-03 | Phase 4 | Pending |
+| RSLT-03 | Phase 4 | Complete |
 | RELI-01 | Phase 1 | Pending |
 
 **Coverage:**

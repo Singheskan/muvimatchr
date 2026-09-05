@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 current_phase: 04
 current_phase_name: Vote Recording & Match Aggregation
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-09-05T07:48:51.309Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-09-05T07:56:26.157Z"
 last_activity: 2026-09-05
 last_activity_desc: Phase 04 execution started
-state_head: 0aaee8c2e37e9d27a61776b4b2f35b6c939bac4e
+state_head: d64ce27575d8144056bfd4b390b501b714503111
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 33
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-04)
 ## Current Position
 
 Phase: 04 (Vote Recording & Match Aggregation) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-09-05 — Phase 04 execution started
 
@@ -84,6 +84,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Phase 02 P02 | 15min | 2 tasks | 4 files |
 | Phase 04 P01 | 25min | 2 tasks | 12 files |
 | Phase 04 P02 | 42min | 2 tasks | 5 files |
+| Phase 04 P03 | 30min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,8 @@ Recent decisions affecting current work:
 - [Phase 04]: Phase 4 Plan 1: Deck caching is keyed by filter combination, not session -- test helper must clear deckCacheRepository before every pin to avoid cross-call/cross-test fixture leakage.
 - [Phase 04]: Phase 4 Plan 2: CreateSessionRequest/SessionFiltersRequest.providerIds changed from List<Int> = emptyList() to List<Int>? = null -- Jackson-Kotlin's synthetic defaults-constructor path unreliably handled a sparse body supplying a later param (genre) while omitting providerIds, breaking the plan's own required {"genre": 28} request shape.
 - [Phase 04]: Phase 4 Plan 2: the D-03 genre-inertness invariant test uses a single session/single deck GET, not a two-session comparison -- two sessions sharing an identical filter combination would hit the same deck-cache row and leave enqueued MockWebServer fixtures unconsumed, corrupting later tests' response ordering.
+- [Phase 04]: [Phase 04]: Phase 4 Plan 3: unanimousMovieIds short-circuits on empty active-participant collection before querying (empty IN () is rejected by Postgres, and is also the correct empty-roster answer); perMovieLikeCounts is deliberately unfiltered by roster/unanimity so RSLT-03's future ranked list needs no schema change.
+- [Phase 04]: [Phase 04]: Phase 4 Plan 3: idle-participant tests backdate vote.voted_at/participant.created_at via jdbcTemplate rather than Thread.sleep or a shrunken test-only timeout, exercising the real 60s production inactivity window deterministically.
 
 ### Pending Todos
 
@@ -134,6 +137,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-05T07:48:51.182Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-09-05T07:56:26.035Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
