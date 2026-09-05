@@ -58,6 +58,12 @@ class SessionService(
     // authorisation rule.
     @Transactional
     fun replaceFilters(sessionId: UUID, region: String?, providerIds: List<Int>, genreId: Int?): Session {
+        // WR-02: same row lock as pinDeck/recordVote -- without it, a concurrent first-time
+        // deck read (DeckController.getDeck -> pinDeck) can commit its pin using filter values
+        // captured before this transaction's write lands, even though this write itself commits
+        // successfully. Taking the lock here first means the two transactions can no longer
+        // interleave on the same session row.
+        sessionRepository.lockForUpdate(sessionId)
         val session = sessionRepository.findById(sessionId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "No session with id $sessionId") }
         // D-02: once the deck is pinned, region/providerIds/genre together are locked. Refusing
