@@ -63,6 +63,15 @@ class SessionController(
         if (participant.session.id != sessionId) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "No such participant in this session")
         }
+        // WR-01: check the lock state before paying for reference-data validation
+        // (requireKnownProviders/requireKnownGenre can both trigger outbound TMDB calls on a cache
+        // miss). A request against an already-pinned session can never succeed regardless of what
+        // it validates to, so reject it up front rather than burning TMDB rate budget on a write
+        // that was never going to be accepted. SessionService.replaceFilters keeps its own
+        // deckPinnedAt check too, for callers that don't go through this controller.
+        if (participant.session.deckPinnedAt != null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Session filters are locked once the deck is pinned")
+        }
         val providerIds = request.providerIds ?: emptyList()
         validateProviderIds(providerIds)
         // Validate against the region this request is establishing, not the session's previous
