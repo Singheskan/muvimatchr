@@ -79,6 +79,11 @@ class SessionService(
     // snapshot.
     @Transactional
     fun pinDeck(sessionId: UUID, genreId: Int?, movies: List<MovieCatalogService.CachedMovie>): Session {
+        // CR-01: same pattern as VoteService.recordVote -- every concurrent pinDeck() call for
+        // THIS session blocks here until the previous call's transaction commits/rolls back, so
+        // the "first writer wins, second call is a no-op" guarantee below is actually enforced
+        // rather than merely documented.
+        sessionRepository.lockForUpdate(sessionId)
         val session = sessionRepository.findById(sessionId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "No session with id $sessionId") }
         if (session.deckPinnedAt != null) return session

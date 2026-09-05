@@ -86,14 +86,22 @@ class DeckController(
             // D-06: a result below MINIMUM_DECK_SIZE must leave deck_pinned_at null so the group
             // can still widen its filters (04-RESEARCH.md Pitfall D) -- pinDeck is called only on
             // the branch below that returns status "ok".
-            sessionService.pinDeck(sessionId, genreId, result.movies)
+            //
+            // CR-01: the response must be built from what pinDeck actually persisted, not from
+            // this caller's own freshly-fetched `result`. If a concurrent request won the pin
+            // race, pinDeck no-ops and returns the *other* caller's already-committed snapshot --
+            // building the response from the local `result` instead would return content that
+            // diverges from the canonical pinned snapshot every later reader is served, violating
+            // this phase's D-01 invariant that the pinned snapshot is the sole source of truth.
+            val pinnedSession = sessionService.pinDeck(sessionId, genreId, result.movies)
+            val pinnedMovies = sessionService.pinnedMovies(pinnedSession)
             DeckResponse(
                 sessionId = sessionId,
                 status = "ok",
-                stale = result.stale,
-                fetchedAt = result.fetchedAt,
-                totalResults = result.totalResults,
-                movies = result.movies.map { it.toDeckMovieResponse() },
+                stale = false,
+                fetchedAt = pinnedSession.deckPinnedAt!!,
+                totalResults = pinnedMovies.size,
+                movies = pinnedMovies.map { it.toDeckMovieResponse() },
             )
         }
     }
