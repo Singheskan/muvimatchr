@@ -1,12 +1,16 @@
 package org.example.muvimatchr.session
 
+import org.example.muvimatchr.catalog.MovieCatalogService
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
 import java.security.SecureRandom
+import java.time.Instant
 import java.util.UUID
+import tools.jackson.core.type.TypeReference
+import tools.jackson.databind.ObjectMapper
 
 // Crockford Base32 alphabet: 10 digits + 22 letters A-Z excluding I, L, O, U
 // (visually ambiguous with 1/1/0/V) — 32 characters total.
@@ -15,7 +19,10 @@ private const val JOIN_CODE_LENGTH = 6
 private const val MAX_JOIN_CODE_ATTEMPTS = 10
 
 @Service
-class SessionService(private val sessionRepository: SessionRepository) {
+class SessionService(
+    private val sessionRepository: SessionRepository,
+    private val objectMapper: ObjectMapper,
+) {
     private val random = SecureRandom()
 
     // Deliberately NO @Transactional here: PostgreSQL aborts the entire transaction after any
@@ -56,6 +63,30 @@ class SessionService(private val sessionRepository: SessionRepository) {
         session.providerIds = providerIds
         return sessionRepository.save(session)
     }
+
+    // D-04: pinning is a one-time state transition triggered lazily by the first successful deck
+    // read for this session (DeckController), not a separate "start voting" action. First writer
+    // wins: a second call (e.g. a racing second participant's near-simultaneous first deck read)
+    // is a no-op that returns the session unchanged rather than overwriting an already-pinned
+    // snapshot.
+    @Transactional
+    fun pinDeck(sessionId: UUID, genreId: Int?, movies: List<MovieCatalogService.CachedMovie>): Session {
+        val session = sessionRepository.findById(sessionId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "No session with id $sessionId") }
+        if (session.deckPinnedAt != null) return session
+        session.genre = genreId
+        session.pinnedDeckJson = objectMapper.writeValueAsString(movies)
+        session.deckPinnedAt = Instant.now()
+        return sessionRepository.save(session)
+    }
+
+    // The single deserialization point for the pinned_deck column -- no other class parses it.
+    fun pinnedMovies(session: Session): List<MovieCatalogService.CachedMovie> {
+        val json = session.pinnedDeckJson ?: return emptyList()
+        return objectMapper.readValue(json, object : TypeReference<List<MovieCatalogService.CachedMovie>>() {})
+    }
+
+    fun pinnedMovieIds(session: Session): Set<Long> = pinnedMovies(session).map { it.tmdbId }.toSet()
 
     private fun generateJoinCode(): String =
         (1..JOIN_CODE_LENGTH).map { JOIN_CODE_ALPHABET[random.nextInt(JOIN_CODE_ALPHABET.length)] }.joinToString("")

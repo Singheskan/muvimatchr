@@ -27,4 +27,47 @@ interface VoteRepository : JpaRepository<Vote, UUID> {
         @Param("movieId") movieId: Long,
         @Param("choice") choice: String,
     )
+
+    // D-06: "active" is last vote -- or join time, if the participant has cast none yet -- within
+    // timeoutSeconds. That COALESCE is D-06 stated in one expression. Recomputed fresh on every
+    // call, per D-07: nothing here is cached or sticky.
+    @Query(
+        value = """
+            SELECT p.id
+            FROM participant p
+            LEFT JOIN LATERAL (
+                SELECT MAX(v.voted_at) AS last_voted_at
+                FROM vote v
+                WHERE v.participant_id = p.id AND v.session_id = CAST(:sessionId AS uuid)
+            ) lv ON true
+            WHERE p.session_id = CAST(:sessionId AS uuid)
+              AND COALESCE(lv.last_voted_at, p.created_at) > now() - (CAST(:timeoutSeconds AS int) * INTERVAL '1 second')
+            ORDER BY p.id
+        """,
+        nativeQuery = true,
+    )
+    fun findActiveParticipantIds(
+        @Param("sessionId") sessionId: UUID,
+        @Param("timeoutSeconds") timeoutSeconds: Int,
+    ): List<UUID>
+
+    // Counts, among the given (already-active) participant ids, how many have cast at least
+    // deckSize votes in this session -- i.e. have finished the pinned deck.
+    @Query(
+        value = """
+            SELECT count(*) FROM (
+                SELECT v.participant_id
+                FROM vote v
+                WHERE v.session_id = CAST(:sessionId AS uuid) AND v.participant_id IN (:participantIds)
+                GROUP BY v.participant_id
+                HAVING COUNT(*) >= :deckSize
+            ) finished
+        """,
+        nativeQuery = true,
+    )
+    fun countFinishedParticipants(
+        @Param("sessionId") sessionId: UUID,
+        @Param("participantIds") participantIds: Collection<UUID>,
+        @Param("deckSize") deckSize: Int,
+    ): Int
 }

@@ -3,6 +3,7 @@ package org.example.muvimatchr.catalog
 import org.example.muvimatchr.auth.CurrentParticipant
 import org.example.muvimatchr.session.Participant
 import org.example.muvimatchr.session.SessionRepository
+import org.example.muvimatchr.session.SessionService
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -18,6 +19,7 @@ import java.util.UUID
 class DeckController(
     private val movieCatalogService: MovieCatalogService,
     private val sessionRepository: SessionRepository,
+    private val sessionService: SessionService,
     private val catalogReferenceService: CatalogReferenceService,
 ) {
 
@@ -35,6 +37,22 @@ class DeckController(
         }
         val session = sessionRepository.findById(sessionId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "No such session")
+        }
+
+        // D-01/D-04: once a deck has been pinned for this session, that snapshot is the sole
+        // source of truth from here on -- the incoming genre query parameter is intentionally
+        // ignored (same "session row, never a request parameter" precedent already established
+        // for region/providerIds below). No further upstream catalog request is made.
+        if (session.deckPinnedAt != null) {
+            val pinnedMovies = sessionService.pinnedMovies(session)
+            return DeckResponse(
+                sessionId = sessionId,
+                status = "ok",
+                stale = false,
+                fetchedAt = session.deckPinnedAt!!,
+                totalResults = pinnedMovies.size,
+                movies = pinnedMovies.map { it.toDeckMovieResponse() },
+            )
         }
 
         // Ordering matters: validating before the outbound call is what stops an arbitrary
@@ -69,29 +87,34 @@ class DeckController(
                 movies = emptyList(),
             )
         } else {
+            // D-06: a result below MINIMUM_DECK_SIZE must leave deck_pinned_at null so the group
+            // can still widen its filters (04-RESEARCH.md Pitfall D) -- pinDeck is called only on
+            // the branch below that returns status "ok".
+            sessionService.pinDeck(sessionId, genre, result.movies)
             DeckResponse(
                 sessionId = sessionId,
                 status = "ok",
                 stale = result.stale,
                 fetchedAt = result.fetchedAt,
                 totalResults = result.totalResults,
-                movies = result.movies.map { movie ->
-                    DeckMovieResponse(
-                        tmdbId = movie.tmdbId,
-                        title = movie.title,
-                        posterPath = movie.posterPath,
-                        genreIds = movie.genreIds,
-                        voteAverage = movie.voteAverage,
-                        releaseDate = movie.releaseDate,
-                        overview = movie.overview,
-                        providers = movie.providers.map { DeckProviderResponse(it.providerId, it.providerName, it.logoPath) },
-                        watchLink = movie.watchLink,
-                    )
-                },
+                movies = result.movies.map { it.toDeckMovieResponse() },
             )
         }
     }
 }
+
+private fun MovieCatalogService.CachedMovie.toDeckMovieResponse(): DeckMovieResponse =
+    DeckMovieResponse(
+        tmdbId = tmdbId,
+        title = title,
+        posterPath = posterPath,
+        genreIds = genreIds,
+        voteAverage = voteAverage,
+        releaseDate = releaseDate,
+        overview = overview,
+        providers = providers.map { DeckProviderResponse(it.providerId, it.providerName, it.logoPath) },
+        watchLink = watchLink,
+    )
 
 // The `status` field is a discriminator with two values in use: `ok` (a sufficient deck, movies
 // populated) and `insufficient_results` (D-06 -- fewer than MINIMUM_DECK_SIZE movies matched,
