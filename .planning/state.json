@@ -21,7 +21,7 @@
     {
       "number": "4",
       "name": "Vote Recording & Match Aggregation",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "number": "5",
@@ -39,5 +39,5 @@
     "label": "Advance to the next step",
     "reason": "Phase 4 of 6 · 33% · executing"
   },
-  "updated_at": "2026-09-05T07:02:32.043Z"
+  "updated_at": "2026-09-05T07:48:42.664Z"
 }

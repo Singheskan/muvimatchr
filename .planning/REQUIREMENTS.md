@@ -28,7 +28,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **VOTE-01**: Participant swipes right (like) / left (pass) on each movie
 - [x] **VOTE-02**: Every vote is persisted immediately (survives disconnect/refresh/restart)
 - [x] **VOTE-03**: Re-voting on a movie updates the existing vote rather than duplicating it
-- [ ] **VOTE-04**: A movie is a "match" only if every currently-joined participant liked it (unanimous)
+- [x] **VOTE-04**: A movie is a "match" only if every currently-joined participant liked it (unanimous)
 - [ ] **VOTE-05**: "Has everyone finished?" is computed live against currently-joined participants, not a snapshot from session start
 
 ### Real-Time Status
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VOTE-01 | Phase 4 | Complete |
 | VOTE-02 | Phase 4 | Complete |
 | VOTE-03 | Phase 4 | Complete |
-| VOTE-04 | Phase 4 | Pending |
+| VOTE-04 | Phase 4 | Complete |
 | VOTE-05 | Phase 4 | Pending |
 | RTIME-01 | Phase 5 | Pending |
 | RTIME-02 | Phase 5 | Pending |

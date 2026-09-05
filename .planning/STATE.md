@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 current_phase: 04
 current_phase_name: Vote Recording & Match Aggregation
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-09-05T07:02:48.807Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-09-05T07:48:51.309Z"
 last_activity: 2026-09-05
 last_activity_desc: Phase 04 execution started
-state_head: 9c322d8470091c76738036e7659241b3c66d0b83
+state_head: 0aaee8c2e37e9d27a61776b4b2f35b6c939bac4e
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
   percent: 33
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-04)
 ## Current Position
 
 Phase: 04 (Vote Recording & Match Aggregation) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-09-05 — Phase 04 execution started
 
@@ -83,6 +83,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Phase 02 P01 | 35min | 2 tasks | 15 files |
 | Phase 02 P02 | 15min | 2 tasks | 4 files |
 | Phase 04 P01 | 25min | 2 tasks | 12 files |
+| Phase 04 P02 | 42min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,8 @@ Recent decisions affecting current work:
 - [Phase 03]: Live TMDB UAT (with a real `TMDB_API_TOKEN`) found and fixed two defects the MockWebServer-only test suite could not catch: (1) `TmdbRegionalAvailability`'s Kotlin/Jackson defaulting broke whenever TMDB omitted a monetization-category JSON key entirely (the common real-world shape — nearly all of a movie's ~126 regions omit `ads`, ~40% omit `rent`/`buy`); (2) CR-04's retry predicate never matched Spring WebClient's actual wrapped-exception shape (`WebClientRequestException` wrapping the real `IOException`). Both fixed in `831ba1e`, both live-verified post-fix. Lesson: fixture-based tests that always include every optional JSON key, or that only simulate HTTP-status failures, can hide entire classes of real-world defects — worth a standing reminder for future phases with external-API integration.
 - [Phase 04]: Phase 4 Plan 1: Pinned-branch totalResults reports pinnedMovies.size, not the raw upstream TMDB total captured at first fetch -- the pinned deck's true candidate count.
 - [Phase 04]: Phase 4 Plan 1: Deck caching is keyed by filter combination, not session -- test helper must clear deckCacheRepository before every pin to avoid cross-call/cross-test fixture leakage.
+- [Phase 04]: Phase 4 Plan 2: CreateSessionRequest/SessionFiltersRequest.providerIds changed from List<Int> = emptyList() to List<Int>? = null -- Jackson-Kotlin's synthetic defaults-constructor path unreliably handled a sparse body supplying a later param (genre) while omitting providerIds, breaking the plan's own required {"genre": 28} request shape.
+- [Phase 04]: Phase 4 Plan 2: the D-03 genre-inertness invariant test uses a single session/single deck GET, not a two-session comparison -- two sessions sharing an identical filter combination would hit the same deck-cache row and leave enqueued MockWebServer fixtures unconsumed, corrupting later tests' response ordering.
 
 ### Pending Todos
 
@@ -131,6 +134,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-05T07:02:48.688Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-09-05T07:48:51.182Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
