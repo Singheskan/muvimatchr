@@ -173,13 +173,13 @@ Plans:
   3. The results view displays the single best mutual match's poster, title, and where to watch it.
   4. The swipe deck UI responds to left/right drag gestures and visually reflects each pass/like before advancing to the next card.
 
-**Plans**: 5 plans
+**Plans**: 1/5 plans executed
 **UI hint**: yes
 
 Plans:
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — Tracer: the Thymeleaf prototype deleted and replaced by a Vite React SPA built into the same Spring Boot JAR, with a token-gated join-code bootstrap endpoint and one join path proven end-to-end
+- [x] 06-01-PLAN.md — Tracer: the Thymeleaf prototype deleted and replaced by a Vite React SPA built into the same Spring Boot JAR, with a token-gated join-code bootstrap endpoint and one join path proven end-to-end
 
 **Wave 2** *(blocked on Wave 1; these two share no source file and run in parallel)*
 
@@ -209,4 +209,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. TMDB Integration & Catalog Caching | 5/5 | Complete    | 2026-09-04 |
 | 4. Vote Recording & Match Aggregation | 4/4 | Complete    | 2026-09-06 |
 | 5. Real-Time Notification Layer | 2/2 | Complete    | 2026-09-06 |
-| 6. Frontend SPA | 0/5 | Not started | - |
+| 6. Frontend SPA | 1/5 | In Progress|  |

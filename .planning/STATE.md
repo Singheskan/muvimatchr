@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 current_phase: 06
 current_phase_name: Frontend SPA
 status: executing
-stopped_at: Phase 6 context gathered
-last_updated: "2026-09-06T13:57:50.832Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-09-06T18:41:05.042Z"
 last_activity: 2026-09-06
-last_activity_desc: Phase 05 complete, transitioned to Phase 6
-state_head: 65ad245f880b01582af340ee24ee7b5bcb8ce2a7
+last_activity_desc: Phase 06 execution started
+state_head: 95a00cdd94c48731753516b88830b6844db070ef
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 21
-  completed_plans: 16
-  percent: 67
+  completed_plans: 17
+  percent: 81
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 
 ## Current Position
 
-Phase: 06 (Frontend SPA) — READY TO EXECUTE
-Plan: Not started
+Phase: 06 (Frontend SPA) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-09-06 — Phase 05 complete, transitioned to Phase 6
+Last activity: 2026-09-06 — Phase 06 execution started
 
-Progress: [████████░░] 83% (Phase 05 of 6 complete)
+Progress: [████████░░] 81% (Phase 05 of 6 complete, Plan 1/5 of Phase 06 complete)
 
 ## Phase 1 Verification Summary
 
@@ -90,6 +90,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Phase 04 P04 | 20min | 2 tasks | 2 files |
 | Phase 05 P01 | 30min | 2 tasks | 9 files |
 | Phase 05 P02 | 25min | 2 tasks | 3 files |
+| Phase 06 P01 | 20min | 4 tasks | 43 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Phase 5 Plan 1: STOMP test client must use the default SimpleMessageConverter with a ByteArray payload type, not StringMessageConverter -- StringMessageConverter's text/plain mime-type matching silently drops the broker's application/json-tagged object broadcasts while still passing same-type string test frames.
 - [Phase 05]: [Phase 05]: Phase 5 Plan 2: StompTestSupport's readiness-marker handshake is topic-wide and was corrupting a co-subscribed client's queue with non-JSON marker frames -- fixed by routing markers to a dedicated shared sink separate from each subscription's real message queue, required once any test holds 2+ concurrently subscribed StompSessions on the same topic.
 - [Phase 05]: Both plan-designated end-of-phase human-check items (startup log /ws confirmation + dead lobby.html socket; live RTIME-03 reconnect walkthrough) were performed during /gsd-verify-work against a real running instance rather than deferred to Phase 6. Since TMDB_API_TOKEN is unavailable on this dev machine (same gap as Phase 3), the deck was seeded directly via SQL insert into deck_cache_entry (bypassing the real TMDB call) rather than through a live fetch -- the notification/reconnect behavior under test doesn't depend on where the deck data came from. Both checks passed: 0 frames on a reconnected STOMP socket, REST reconciliation returned the correct completed state.
+- [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer approved D-01 (single deployable JAR) and D-02 (Thymeleaf prototype teardown) as written (approve-both).
+- [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer approved all four npm packages (motion, @stomp/stompjs, @tanstack/react-query, react-router) plus the Vite scaffold set on npmjs.com.
+- [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer verified the browser join flow end-to-end (localhost:8080/s/MH1ZWF -> join -> authenticated read-back) and approved the tracer feedback gate.
 
 ### Pending Todos
 
@@ -144,6 +148,7 @@ None yet.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale a SIXTH time, this time via state.advance-plan/state.update-progress during 05-02's own execution close-out (05-02 is the last plan of Phase 05, not yet transitioned) -- reset 4->3 completed_phases, 67%->50%. Manually corrected back to 4/67% (Phase 05 itself is not yet marked complete, only its plans). Now confirmed across phase.complete, state.record-session (x2), state.update-progress, and state.advance-plan -- five distinct state-mutation verbs share the same broken progress-recompute path.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale a SEVENTH time, this time via phase.complete itself when actually transitioning Phase 05 -> Phase 06 (the one call that's supposed to get this right) -- left completed_phases at 4/67% after Phase 05 genuinely completed (state.json correctly showed phase 5 status: complete throughout). Manually corrected to 5/83%. This is now confirmed on phase.complete's own completion path, not just the incidental session-recording verbs -- the shared progress-recompute logic is broken everywhere it's called from, including the one call site whose entire job is to get this number right.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale an EIGHTH time, this time via state.record-session during Phase 6's /gsd-discuss-phase run (same trigger class as the FOURTH occurrence) -- reset 5->4 completed_phases, 83%->67%, even though no phase completion occurred (Phase 05 was already complete; this was just a context-gathering session). Manually corrected back to 5/83%. Now confirmed on six distinct call sites (phase.complete, state.record-session x3, state.update-progress, state.advance-plan) -- still unfixed, still purely cosmetic (state.json remains correct throughout), but worth actually filing as a defect rather than continuing to hand-patch every phase.
+- STATE.md's progress.completed_phases/percent frontmatter drifted stale a NINTH time, this time via state.advance-plan/state.update-progress during 06-01's own execution close-out (Phase 05 was already complete; only Phase 06 Plan 1 finished) -- reset 5->4 completed_phases, 83%->67% (and update-progress additionally recomputed percent as plans-only 67% rather than phases-plus-plans 81%). Manually corrected to 5 completed_phases / 81%. Same shared progress-recompute defect, seventh and eighth distinct trigger observations on top of the six call sites already logged; still purely cosmetic (state.json remains correct throughout).
 
 ## Deferred Items
 
@@ -155,6 +160,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-06T13:14:40.749Z
-Stopped at: Phase 6 context gathered
-Resume file: /Users/psrg/Projects/MuviMatchr/.planning/phases/06-frontend-spa/06-CONTEXT.md
+Last session: 2026-09-06T18:41:04.791Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None
