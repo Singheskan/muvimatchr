@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 current_phase: 05
 current_phase_name: Real-Time Notification Layer
-status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-09-06T08:02:06.993Z"
+status: verifying
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-09-06T08:14:47.109Z"
 last_activity: 2026-09-06
 last_activity_desc: Phase 05 execution started
-state_head: d85ea4a696abdeff630d697729f538543bf0d547
+state_head: e77ae6dbee91e921b49b23f33c12ffe28f400961
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 67
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 
 Phase: 05 (Real-Time Notification Layer) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-06 — Phase 05 execution started
 
 Progress: [███████░░░] 67% (Phase 04 of 6 complete)
@@ -88,6 +88,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Phase 04 P03 | 30min | 2 tasks | 4 files |
 | Phase 04 P04 | 20min | 2 tasks | 2 files |
 | Phase 05 P01 | 30min | 2 tasks | 9 files |
+| Phase 05 P02 | 25min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,7 @@ Recent decisions affecting current work:
 - [Phase 04]: [Phase 04]: Phase 4 Plan 4: RestartSurvivalTest's new service-path durability method reads the post-restart vote row via a direct jdbcTemplate query, not VoteRepository, matching the file's existing flyway_schema_history precedent and keeping the assertion independent of the repository layer under test elsewhere.
 - [Phase 05]: Phase 5 Plan 1: TestRestTemplate does not exist on this project's Spring Boot 4.1.1 classpath (confirmed absent even from spring-boot-restclient-test) -- used java.net.http.HttpClient instead for the REST-vs-push parity fetch, zero new dependency.
 - [Phase 05]: Phase 5 Plan 1: STOMP test client must use the default SimpleMessageConverter with a ByteArray payload type, not StringMessageConverter -- StringMessageConverter's text/plain mime-type matching silently drops the broker's application/json-tagged object broadcasts while still passing same-type string test frames.
+- [Phase 05]: [Phase 05]: Phase 5 Plan 2: StompTestSupport's readiness-marker handshake is topic-wide and was corrupting a co-subscribed client's queue with non-JSON marker frames -- fixed by routing markers to a dedicated shared sink separate from each subscription's real message queue, required once any test holds 2+ concurrently subscribed StompSessions on the same topic.
 
 ### Pending Todos
 
@@ -137,6 +139,7 @@ None yet.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a FOURTH time, this time triggered by `state.record-session` during Phase 5's `/gsd-discuss-phase` run (not a `phase.complete` call) — reset 4→3 completed_phases, 67%→50%, even though no phase completion occurred, just a context-gathering session. Manually corrected back to 4/67%. Confirms the defect is broader than `phase.complete` — `state.record-session` itself recomputes/overwrites this block incorrectly on any session-recording call.
 - Phase 5 Plan 1's Task 2 human-check (confirm /ws STOMP endpoint in startup log and that the prototype lobby.html no longer opens a socket) is deferred to end of Phase 5 per the plan itself -- not yet performed as of 05-01's completion.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a FIFTH time, this time via `state.update-progress`/`state.record-session` during 05-01's own execution close-out (no phase completion occurred, just this plan finishing) — reset 4→3 completed_phases, 67%→50%. Manually corrected back to 4/67%. Now confirmed across `phase.complete`, `state.record-session` (twice), and `state.update-progress` — the defect is in shared progress-recompute logic invoked by multiple state-mutation verbs, not any single command.
+- STATE.md's progress.completed_phases/percent frontmatter drifted stale a SIXTH time, this time via state.advance-plan/state.update-progress during 05-02's own execution close-out (05-02 is the last plan of Phase 05, not yet transitioned) -- reset 4->3 completed_phases, 67%->50%. Manually corrected back to 4/67% (Phase 05 itself is not yet marked complete, only its plans). Now confirmed across phase.complete, state.record-session (x2), state.update-progress, and state.advance-plan -- five distinct state-mutation verbs share the same broken progress-recompute path.
 
 ## Deferred Items
 
@@ -148,6 +151,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-06T08:02:06.801Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-09-06T08:14:46.913Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None

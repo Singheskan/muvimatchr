@@ -33,9 +33,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Real-Time Status
 
-- [ ] **RTIME-01**: A participant who finishes early sees a live "waiting on N of M" screen that updates as others finish
-- [ ] **RTIME-02**: When the last person finishes, connected participants auto-transition to results
-- [ ] **RTIME-03**: A reconnecting participant always sees correct current status (reconciled via the server, never stale)
+- [x] **RTIME-01**: A participant who finishes early sees a live "waiting on N of M" screen that updates as others finish
+- [x] **RTIME-02**: When the last person finishes, connected participants auto-transition to results
+- [x] **RTIME-03**: A reconnecting participant always sees correct current status (reconciled via the server, never stale)
 
 ### Results & Reliability
 
@@ -94,9 +94,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VOTE-03 | Phase 4 | Complete |
 | VOTE-04 | Phase 4 | Complete |
 | VOTE-05 | Phase 4 | Complete |
-| RTIME-01 | Phase 5 | Pending |
-| RTIME-02 | Phase 5 | Pending |
-| RTIME-03 | Phase 5 | Pending |
+| RTIME-01 | Phase 5 | Complete |
+| RTIME-02 | Phase 5 | Complete |
+| RTIME-03 | Phase 5 | Complete |
 | RSLT-01 | Phase 6 | Pending |
 | RSLT-02 | Phase 6 | Pending |
 | RSLT-03 | Phase 4 | Complete |
