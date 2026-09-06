@@ -3,9 +3,9 @@ phase: "04"
 slug: "vote-recording-match-aggregation"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
 # audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-09-04"
 ---
 
@@ -40,13 +40,14 @@ created: "2026-09-04"
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 04-01-01 | 01 | 1 | VOTE-01 | — | Participant submits like/pass, vote persisted immediately | integration (Testcontainers) | `./gradlew test --tests "*VoteControllerTest*"` | ❌ W0 | ⬜ pending |
-| 04-01-02 | 01 | 1 | VOTE-02 | — | Vote survives server restart | integration, extends `RestartSurvivalTest` | `./gradlew test --tests "*RestartSurvivalTest*"` | ✅ (extend existing) | ⬜ pending |
-| 04-01-03 | 01 | 1 | VOTE-03 | — | Re-vote updates existing row, no duplicate | unit/integration | `./gradlew test --tests "*VoteRepositoryTest*"` | ✅ (extend existing repo test; new service/controller coverage needed) | ⬜ pending |
-| 04-02-01 | 02 | 2 | VOTE-04 | — | Movie reported as match only when every currently-joined participant liked it | integration (Testcontainers) | `./gradlew test --tests "*MatchAggregationServiceTest*"` | ❌ W0 | ⬜ pending |
-| 04-02-02 | 02 | 2 | VOTE-05 | — | "Has everyone finished" computed against live roster; late joiner flips completion back | integration (Testcontainers) | `./gradlew test --tests "*MatchAggregationServiceTest*"` | ❌ W0 | ⬜ pending |
-| 04-02-03 | 02 | 2 | RSLT-03 | — | Per-movie like counts queryable, not just winner flag | unit/integration | `./gradlew test --tests "*VoteRepositoryTest*"` | ❌ W0 (new test method) | ⬜ pending |
-| 04-02-04 | 02 | 2 | (ROADMAP success criterion 4) | — | Two-concurrent-clients final-vote race triggers match computation exactly once (no double/missed trigger) | integration, `ExecutorService`/`CountDownLatch`-synchronized concurrent threads against Testcontainers Postgres | `./gradlew test --tests "*VoteServiceConcurrencyTest*"` | ❌ W0 | ⬜ pending |
+| 04-01-01 | 01 | 1 | VOTE-01 | T-04-01..05 | Participant submits like/pass, vote persisted immediately | integration (Testcontainers) | `./gradlew test --tests "*VoteControllerTest*"` | ✅ | ✅ green |
+| 04-01-02 | 01 | 1 | VOTE-02 | — | Vote survives server restart | integration, `RestartSurvivalTest` | `./gradlew test --tests "*RestartSurvivalTest*"` | ✅ (extended) | ✅ green |
+| 04-01-03 | 01 | 1 | VOTE-03 | — | Re-vote updates existing row, no duplicate | integration (`VoteControllerTest`) + unit (`VoteRepositoryTest`) | `./gradlew test --tests "*VoteControllerTest*" --tests "*VoteRepositoryTest*"` | ✅ (`a repeat POST with a different choice updates the existing vote row in place instead of duplicating`, `upsertVote for an existing tuple updates the choice in place instead of duplicating`) | ✅ green |
+| 04-02-01 | 03 | 2 | VOTE-04 | — | Movie reported as match only when every currently-joined participant liked it | integration (Testcontainers) | `./gradlew test --tests "*MatchAggregationServiceTest*"` | ✅ (`a movie liked by two of three active participants is excluded from matchedMovieIds`) | ✅ green |
+| 04-02-02 | 03 | 2 | VOTE-05 | — | "Has everyone finished" computed against live roster; late joiner flips completion back | integration (Testcontainers) | `./gradlew test --tests "*MatchAggregationServiceTest*"` | ✅ (idle/backdated-participant tests) | ✅ green |
+| 04-02-03 | 03 | 2 | RSLT-03 | — | Per-movie like counts queryable, not just winner flag | integration (Testcontainers) | `./gradlew test --tests "*MatchAggregationServiceTest*"` | ✅ (`likeCounts orders by count descending then movieId ascending, and repeated calls are identical`) | ✅ green |
+| 04-02-04 | 04 | 3 | (ROADMAP success criterion 4) | T-04-05 | Ten simultaneous final-vote races each trigger match computation exactly once (no double/missed trigger) | integration, `CountDownLatch`-synchronized concurrent threads against Testcontainers Postgres | `./gradlew test --tests "*VoteServiceConcurrencyTest*"` | ✅ | ✅ green |
+| 04-03-01 | 04 | 3 | (code-review CR-01/WR-02/WR-03) | — | Concurrent first-time deck pins converge on exactly one persisted snapshot; concurrent filter-replacement/pin races are mutually excluded | integration, `CountDownLatch`-synchronized concurrent threads against Testcontainers Postgres | `./gradlew test --tests "*DeckPinConcurrencyTest*"` | ✅ (added during code-review fix pass) | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -54,11 +55,12 @@ created: "2026-09-04"
 
 ## Wave 0 Requirements
 
-- [ ] `src/test/kotlin/org/example/muvimatchr/voting/VoteControllerTest.kt` — stubs for VOTE-01, VOTE-02 (integration)
-- [ ] `src/test/kotlin/org/example/muvimatchr/voting/MatchAggregationServiceTest.kt` — stubs for VOTE-04, VOTE-05, RSLT-03
-- [ ] `src/test/kotlin/org/example/muvimatchr/voting/VoteServiceConcurrencyTest.kt` — stub for the two-concurrent-clients exactly-once completion criterion
-- [ ] Extend `src/test/kotlin/org/example/muvimatchr/RestartSurvivalTest.kt` — add a vote-survives-restart assertion alongside existing session/participant assertions
-- [ ] Framework install: none — Testcontainers Postgres, JUnit 5, and `PostgresTestSupport` base class already exist and are reused as-is
+- [x] `src/test/kotlin/org/example/muvimatchr/voting/VoteControllerTest.kt` — VOTE-01, VOTE-02, VOTE-03 (integration)
+- [x] `src/test/kotlin/org/example/muvimatchr/voting/MatchAggregationServiceTest.kt` — VOTE-04, VOTE-05, RSLT-03
+- [x] `src/test/kotlin/org/example/muvimatchr/voting/VoteServiceConcurrencyTest.kt` — the ten-simultaneous-finishes exactly-once completion criterion
+- [x] Extended `src/test/kotlin/org/example/muvimatchr/RestartSurvivalTest.kt` — vote-survives-restart assertion alongside existing session/participant assertions
+- [x] `src/test/kotlin/org/example/muvimatchr/session/DeckPinConcurrencyTest.kt` — added during the code-review fix pass (CR-01/WR-02/WR-03), not originally in this strategy's Wave 0 list
+- [x] Framework install: none — Testcontainers Postgres, JUnit 5, and `PostgresTestSupport` base class already existed and were reused as-is
 
 ---
 
@@ -70,11 +72,19 @@ created: "2026-09-04"
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 90s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 90s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated 2026-09-06 — 8/8 per-task rows green, full suite (`./gradlew test`) passes, zero gaps found.
+
+## Validation Audit 2026-09-06
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
