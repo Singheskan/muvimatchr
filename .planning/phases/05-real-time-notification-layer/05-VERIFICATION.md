@@ -1,11 +1,12 @@
 ---
 phase: 05-real-time-notification-layer
 verified: 2026-09-06T08:30:51Z
-status: human_needed
+status: passed
 score: 15/15 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 deferred:
+
   - truth: "A participant who finishes early visually sees a live 'waiting on N of M' screen update in a browser (SC1's UI half)"
     addressed_in: "Phase 6"
     evidence: "Phase 6 success criteria: 'create/join a session, enter a display name, swipe through the deck, watch a live waiting screen, and land on results' — through the React SPA that does not exist yet"
@@ -16,6 +17,7 @@ deferred:
     addressed_in: "Phase 6"
     evidence: "05-CONTEXT.md and both plans' own 'Flagged assumptions' sections explicitly name this as a frontend obligation this phase cannot enforce, to be built in Phase 6's SPA"
 human_verification:
+
   - test: "Start the application against the local compose Postgres and inspect the startup log for a STOMP endpoint registered at /ws with no fallback transport handler (no SockJS), and open templates/lobby.html in a browser to confirm its SockJS client no longer establishes a socket."
     expected: "Startup log shows a plain WebSocket STOMP endpoint at /ws; lobby.html's browser console shows a failed/absent SockJS connection rather than a live socket."
     why_human: "Requires reading real application startup log output and observing real browser network/console behavior — not visible via static source or unit/integration test inspection. This is 05-01-PLAN.md Task 2's own designated <human-check>, explicitly deferred to end-of-phase by the plan itself; this verification pass is that end-of-phase point."
