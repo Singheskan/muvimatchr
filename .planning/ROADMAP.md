@@ -173,8 +173,28 @@ Plans:
   3. The results view displays the single best mutual match's poster, title, and where to watch it.
   4. The swipe deck UI responds to left/right drag gestures and visually reflects each pass/like before advancing to the next card.
 
-**Plans**: TBD
+**Plans**: 5 plans
 **UI hint**: yes
+
+Plans:
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — Tracer: the Thymeleaf prototype deleted and replaced by a Vite React SPA built into the same Spring Boot JAR, with a token-gated join-code bootstrap endpoint and one join path proven end-to-end
+
+**Wave 2** *(blocked on Wave 1; these two share no source file and run in parallel)*
+
+- [ ] 06-02-PLAN.md — Named participant roster with per-person voting progress, derived from the same live inactivity rule the completion arithmetic already uses
+- [ ] 06-03-PLAN.md — Swipe deck: drag-committed card stack with tilt and directional tint, desktop-only like/pass buttons, mid-deck resume, and a straight-through transition when the deck runs out
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06-04-PLAN.md — Server-authoritative route guards for every session route, plus the waiting screen wired to the Phase 5 STOMP topic with reconnect-reconcile and a named roster
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 06-05-PLAN.md — Results view with a deterministic single-best-match rule and the zero-match message, and a cold-opened resume link proven to land straight on results
+
+*Note: waves 2 through 4 are sequenced by frontend file ownership — 06-03, 06-04 and 06-05 each register their route in `frontend/src/App.tsx`, and 06-04 additionally extends the API client 06-03 wrote. 06-02 is backend-only and shares no file with 06-03, so those two run in parallel.*
 
 ## Progress
 
@@ -189,4 +209,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. TMDB Integration & Catalog Caching | 5/5 | Complete    | 2026-09-04 |
 | 4. Vote Recording & Match Aggregation | 4/4 | Complete    | 2026-09-06 |
 | 5. Real-Time Notification Layer | 2/2 | Complete    | 2026-09-06 |
-| 6. Frontend SPA | 0/TBD | Not started | - |
+| 6. Frontend SPA | 0/5 | Not started | - |
