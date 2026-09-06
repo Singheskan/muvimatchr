@@ -13,13 +13,25 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.web.server.ResponseStatusException
+import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
-// Task 1: covers the read model (computeRoster) over live participant/vote tables. Task 2 will
-// extend this same file with MockMvc endpoint cases. In-process fixtures throughout -- no HTTP, no
-// catalog mock server -- extends PostgresTestSupport directly, matching MatchAggregationServiceTest.
+// Task 1: covers the read model (computeRoster) over live participant/vote tables. Task 2 extends
+// this same file with MockMvc endpoint cases (@AutoConfigureMockMvc). In-process fixtures
+// throughout -- no catalog mock server needed since decks are pinned directly via SessionService,
+// not via the HTTP deck endpoint -- extends PostgresTestSupport directly, matching
+// MatchAggregationServiceTest.
+@AutoConfigureMockMvc
 class SessionRosterTest : PostgresTestSupport() {
 
     @Autowired
@@ -39,6 +51,12 @@ class SessionRosterTest : PostgresTestSupport() {
 
     @Autowired
     lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    lateinit var mockMvc: MockMvc
+
+    @Autowired
+    lateinit var objectMapper: ObjectMapper
 
     private fun newSession(): Session =
         sessionRepository.save(Session(joinCode = UUID.randomUUID().toString().take(16)))
@@ -206,5 +224,127 @@ class SessionRosterTest : PostgresTestSupport() {
         }
 
         assertEquals(statusEx.statusCode, rosterEx.statusCode)
+    }
+
+    // ---- Task 2: GET /api/sessions/{sessionId}/votes/roster (membership-gated REST endpoint) ----
+
+    private fun createSessionViaHttp(): Pair<String, String> {
+        val response = mockMvc.perform(post("/api/sessions"))
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+        @Suppress("UNCHECKED_CAST")
+        val body = objectMapper.readValue(response, Map::class.java) as Map<String, Any>
+        return (body["sessionId"] as String) to (body["joinCode"] as String)
+    }
+
+    private fun joinViaHttp(joinCode: String, displayName: String): String {
+        val response = mockMvc.perform(
+            post("/api/sessions/$joinCode/participants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"displayName":"$displayName"}""")
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+            .response
+            .contentAsString
+        @Suppress("UNCHECKED_CAST")
+        val body = objectMapper.readValue(response, Map::class.java) as Map<String, Any>
+        return body["token"] as String
+    }
+
+    @Test
+    fun `GET roster with a valid bearer token for a member returns 200 with sessionId, deckSize and a join-ordered participants array`() {
+        val (sessionId, joinCode) = createSessionViaHttp()
+        val tokenAlice = joinViaHttp(joinCode, "Alice")
+        val tokenBob = joinViaHttp(joinCode, "Bob")
+        val session = sessionRepository.findById(UUID.fromString(sessionId)).get()
+        pinDeck(session, listOf(550L, 155L))
+        val alice = participantRepository.findBySession_IdOrderByCreatedAtAsc(session.id!!).first { it.displayName == "Alice" }
+        like(session.id!!, alice.id!!, 550L)
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/votes/roster")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenAlice")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.sessionId").value(sessionId))
+            .andExpect(jsonPath("$.deckSize").value(2))
+            .andExpect(jsonPath("$.participants[0].displayName").value("Alice"))
+            .andExpect(jsonPath("$.participants[1].displayName").value("Bob"))
+            .andReturn()
+            .response
+            .contentAsString
+
+        @Suppress("UNCHECKED_CAST")
+        val body = objectMapper.readValue(responseBody, Map::class.java) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val participants = body["participants"] as List<Map<String, Any>>
+        assertEquals(2, participants.size)
+        assertEquals(tokenBob.isNotBlank(), true) // tokenBob only used to seed a second participant
+    }
+
+    @Test
+    fun `each roster participant entry serializes with the wire field names participantId, displayName, votedCount, isFinished, isActive`() {
+        val (sessionId, joinCode) = createSessionViaHttp()
+        val token = joinViaHttp(joinCode, "Alice")
+        val session = sessionRepository.findById(UUID.fromString(sessionId)).get()
+        pinDeck(session, listOf(550L))
+        val alice = participantRepository.findBySession_IdOrderByCreatedAtAsc(session.id!!).first()
+        like(session.id!!, alice.id!!, 550L)
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionId/votes/roster")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.participants[0].participantId").value(alice.id.toString()))
+            .andExpect(jsonPath("$.participants[0].displayName").value("Alice"))
+            .andExpect(jsonPath("$.participants[0].votedCount").value(1))
+            .andExpect(jsonPath("$.participants[0].isFinished").value(true))
+            .andExpect(jsonPath("$.participants[0].isActive").value(true))
+    }
+
+    @Test
+    fun `GET roster with a token belonging to a different session is rejected with 404`() {
+        val (sessionIdA, joinCodeA) = createSessionViaHttp()
+        val tokenA = joinViaHttp(joinCodeA, "Alice")
+        val (sessionIdB, joinCodeB) = createSessionViaHttp()
+        joinViaHttp(joinCodeB, "Bob")
+
+        mockMvc.perform(
+            get("/api/sessions/$sessionIdB/votes/roster")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $tokenA")
+        ).andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `GET roster with no Authorization header is rejected with 401`() {
+        val (sessionId, _) = createSessionViaHttp()
+
+        mockMvc.perform(get("/api/sessions/$sessionId/votes/roster"))
+            .andExpect(status().isUnauthorized)
+    }
+
+    @Test
+    fun `the roster response body contains no token hash, no other-participant vote detail and no session-level completion flag`() {
+        val (sessionId, joinCode) = createSessionViaHttp()
+        val token = joinViaHttp(joinCode, "Alice")
+        val session = sessionRepository.findById(UUID.fromString(sessionId)).get()
+        pinDeck(session, listOf(550L))
+
+        val responseBody = mockMvc.perform(
+            get("/api/sessions/$sessionId/votes/roster")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        assertFalse(responseBody.contains("tokenHash", ignoreCase = true), "response must never disclose a token hash")
+        assertFalse(responseBody.contains("isComplete"), "roster response must not carry a session-level completion flag (P-02)")
+        assertFalse(responseBody.contains("likeCounts"), "roster response must not carry per-movie vote detail")
     }
 }
