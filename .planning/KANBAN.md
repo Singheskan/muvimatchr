@@ -743,6 +743,66 @@ affected, as with all six prior occurrences). Manually corrected to `5`/`83%`. T
 longer "some state-mutation verbs have a shared bug" — the primary, intended call site
 for marking a phase done also hits it. Filing this upstream is overdue.
 
+### 2026-09-06 — Phase 6 context gathered (Frontend SPA)
+
+Ran `/gsd-discuss-phase 6` in default interactive mode. No SPEC.md, no prior
+checkpoint, no existing plans — clean start. Loaded PROJECT.md/REQUIREMENTS.md/
+STATE.md plus the three most recent prior CONTEXT.md files (05, 04, 02) and the
+Phase 6-relevant slices of STACK.md/ARCHITECTURE.md/PITFALLS.md. Confirmed via
+`find`/`ls` that no `frontend/` scaffold exists yet and the legacy prototype's
+7 Thymeleaf templates + `spring-boot-starter-thymeleaf` are still present and
+untouched.
+
+Discussed all 4 presented gray areas (user selected all): build & deploy
+integration, session URL scheme & resume-token handling, swipe deck
+interaction, waiting/results screen content. Key decisions captured in
+`06-CONTEXT.md`:
+
+- Single deployable JAR — `frontend/` (Vite/React/TS) built via a Gradle task
+  and copied into Spring Boot static resources, no CORS/two-service split.
+- Delete the 7 legacy Thymeleaf templates + thymeleaf dependency now, not
+  deferred to end of phase (matches Phase 5's precedent of deleting the legacy
+  WebSocketConfig/Controller outright rather than leaving it alongside new code).
+- `/s/{joinCode}` shareable URLs, real React Router with one route per screen
+  (join/swipe/wait/results) — each route re-fetches live status on mount and
+  redirects if the user is "ahead" of their real state, so routing is purely
+  presentational and adds no new access-control surface.
+- Resume-link bearer token stays in the URL query string permanently (user's
+  explicit choice, against the recommended localStorage-and-scrub option) —
+  consistent with the already-accepted Phase 2 risk logged in `02-REVIEW.md`.
+- Swipe deck: 2-3 card stack depth, color-tint + rotation drag feedback,
+  deck-exhaustion auto-transitions to waiting (no dead end), like/pass buttons
+  shown on desktop only (hidden on mobile, which stays drag-only).
+- Waiting screen shows a named per-participant done/waiting roster, not a bare
+  count. Results screen shows a plain "no match" message on a genuine
+  zero-mutual-match outcome (full ranked-fallback UX stays deferred to v2 per
+  REQUIREMENTS.md RSLT-05 — confirmed as already-scoped-out, not a new
+  deferral).
+
+One live back-and-forth worth noting: the user pushed back on the routing
+question ("can users mess with the session when its client side?") before
+picking React Router. Answered directly rather than re-asking the same
+multiple-choice — the backend is the sole authority on all real session state
+regardless of URL, so client-side routing changes nothing about what a user
+can actually do. Also needed two rounds of clarification on the like/pass
+button question ("we need two options for phones and for pcs" → "buttons do
+not show up on mobile") before landing on the final responsive-buttons
+decision — a case where the initial multiple-choice options didn't cover the
+actual answer the user had in mind, resolved via targeted single-select
+follow-ups rather than guessing.
+
+Committed `06-CONTEXT.md` + `06-DISCUSSION-LOG.md` (`d138349`).
+
+**Drift bug recurred an EIGHTH time** — `state.record-session` reset
+`completed_phases`/`percent` from `5`/`83%` back to `4`/`67%` even though this
+was purely a context-gathering session (Phase 5 already complete, no
+completion event occurred). Manually corrected back to `5`/`83%` and logged in
+STATE.md Blockers/Concerns as the eighth confirmed occurrence, now spanning six
+distinct call sites including `phase.complete` itself. Committed separately
+(`2c3b553`).
+
+Next: `/gsd-plan-phase 6` to turn this context into an executable plan.
+
 ## Format for future entries
 
 ```
