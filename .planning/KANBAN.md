@@ -10,9 +10,10 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Phase 5 (Real-Time Notification Layer) — both plans executed (see Done); phase not yet transitioned/closed out (code review, verification, ROADMAP/PROJECT.md transition still pending).
+- Phase 6 (Frontend SPA) — planned (5 plans, 4 waves, verification passed); ready to execute via `/gsd-execute-phase 6`.
 
 ### Done
+- Phase 5 (Real-Time Notification Layer) — executed, code-reviewed, verified, transitioned/closed (2026-09-06).
 - **Plan 05-02 (N-of-M progression, multi-client fan-out, reconnect reconciliation) —
   complete (2026-09-06). Phase 5's plans are now all executed.** See dated entry below
   for full detail. Full plan SUMMARY at
@@ -802,6 +803,66 @@ distinct call sites including `phase.complete` itself. Committed separately
 (`2c3b553`).
 
 Next: `/gsd-plan-phase 6` to turn this context into an executable plan.
+
+### 2026-09-06 — Phase 6 planned (Frontend SPA)
+
+Ran `/gsd-plan-phase 6`. User opted to **skip phase-level research** (STACK/
+ARCHITECTURE/PITFALLS from project-level research plus 06-CONTEXT.md were
+judged sufficient) and to **continue without Nyquist's VALIDATION.md** when
+prompted (no RESEARCH.md → no Validation Architecture section to derive it
+from). Spawned `gsd-pattern-mapper` first (no capability skip since
+`workflow.pattern_mapper` is on) — it produced `06-PATTERNS.md`, surfacing one
+load-bearing finding: `LobbyController.kt`/`MovieVoteController.kt` are the
+only remaining callers of the view-name strings tied to the 7 templates D-02
+deletes, and would 500 on `/` and `/vote` if left behind — folded into the
+planner's brief so the teardown wouldn't silently miss them.
+
+Since there's no SPEC.md for this phase, ran the spec-less edge-probe fallback
+against RSLT-01/RSLT-02 before planning — both came back `unclassified/
+unresolved` (the deterministic probe couldn't auto-classify edge cases from
+requirement text alone); passed the raw coverage report into the planner with
+an explicit instruction to surface both as flagged assumptions rather than
+silently drop them, and to run the prohibition-recall protocol itself (no
+`## Prohibitions` section existed either).
+
+`gsd-planner` (opus) produced **5 plans across 4 waves**:
+- **06-01** (Wave 1, tracer, non-autonomous) — D-01 Gradle/Vite single-JAR
+  wiring, D-02 Thymeleaf + prototype teardown (now including the two flagged
+  controllers), a new token-gated `GET /api/sessions/by-code/{joinCode}/me`
+  bootstrap endpoint, D-03 resume-URL reshape, and the join screen proven
+  end-to-end. Two zero-code `checkpoint:decision`/`checkpoint:human-verify`
+  gates before D-01/D-02's one-way teardown, per REVERSIBILITY_GATES.
+- **06-02** (Wave 2, autonomous) — new named-roster read model +
+  `GET /.../votes/roster` for D-10, reusing the existing inactivity query.
+- **06-03** (Wave 2, non-autonomous) — swipe deck (D-06/07/08/09): pure
+  `resolveSwipe` rule, `motion` drag/tilt/tint, desktop-only buttons at 768px.
+- **06-04** (Wave 3, non-autonomous) — `resolveScreen`/`useRouteGuard` (D-04)
+  + waiting screen wired to STOMP with reconnect-reconcile.
+- **06-05** (Wave 4, non-autonomous) — `pickBestMatch` + results view
+  (RSLT-02), D-11 no-match branch, cold-open forwarding (RSLT-01).
+
+Two new backend endpoints beyond CONTEXT.md's explicit list turned out
+necessary (join-code→session resolution for D-03; roster data source for
+D-10, since `VoteStatusResponse` only carried aggregate counts) — both
+additive, both token-gated, explicitly called out by the planner as
+CONTEXT.md-permitted ("anything unforeseen surfaced during planning"). No
+`## Package Legitimacy Audit` existed (research skipped), so the planner
+applied the documented fallback: treated all npm packages as `[ASSUMED]` and
+added a blocking-human checkpoint before `npm install` rather than halting
+planning outright.
+
+`gsd-plan-checker` (haiku) returned **VERIFICATION PASSED**, zero
+blockers/warnings, on the first pass — no revision loop needed. Both
+deterministic probes (verify-command-path resolvability, failing-direction
+statements) were 87/87 clean before the checker even ran. Requirements
+coverage 2/2, decision coverage 11/11, post-planning gap analysis 13/13 (2
+requirements + 11 decisions) — all green on first check, no re-plan cycles.
+
+Committed plans (`e120e74`), then a small follow-up commit for
+`state.json`/`06-PATTERNS.md` that the first commit's file list missed
+(`42d65c7`).
+
+Next: `/gsd-execute-phase 6` to run all 5 plans.
 
 ## Format for future entries
 
