@@ -76,6 +76,16 @@ abstract class StompTestSupport : PostgresTestSupport() {
             .connectAsync("ws://localhost:$port/ws", object : StompSessionHandlerAdapter() {})
             .get(5, TimeUnit.SECONDS)
 
+    // Shared sink for readiness-handshake marker frames (see subscribeAndAwaitReady below),
+    // deliberately separate from any per-subscription "real" queue. Two-concurrent-subscriber
+    // tests (05-02) revealed that without this split, a SECOND client's readiness marker --
+    // broadcast to the whole topic via messagingTemplate, not addressed to just that client --
+    // also lands in a FIRST, already-subscribed client's queue, corrupting it with a non-JSON
+    // string the first client's test code never asked for and cannot parse as a status frame.
+    // Routing every marker-prefixed frame here instead, regardless of which subscription received
+    // it, keeps every "real" queue returned to callers free of handshake noise.
+    private val readyMarkerFrames = LinkedBlockingQueue<String>()
+
     /**
      * Subscribes to a session's status topic and returns a queue that fills with the raw JSON
      * frame body as a String. Requests a ByteArray payload type -- not String -- because the
@@ -83,7 +93,9 @@ abstract class StompTestSupport : PostgresTestSupport() {
      * assignable to the requested type with zero conversion, and the STOMP frame's payload is
      * always raw bytes on the wire regardless of what type the server originally published. No
      * client-side deserialization to a DTO happens here -- that's deliberate, the parity
-     * assertion needs the actual wire field names untouched.
+     * assertion needs the actual wire field names untouched. Any frame tagged with the readiness
+     * marker prefix is diverted to [readyMarkerFrames] instead of this queue -- see that field's
+     * comment for why.
      */
     protected fun subscribeToSessionTopic(session: StompSession, sessionId: UUID): LinkedBlockingQueue<String> {
         val queue = LinkedBlockingQueue<String>()
@@ -93,10 +105,15 @@ abstract class StompTestSupport : PostgresTestSupport() {
                 override fun getPayloadType(headers: StompHeaders): Type = ByteArray::class.java
 
                 override fun handleFrame(headers: StompHeaders, payload: Any?) {
-                    when (payload) {
-                        is ByteArray -> queue.offer(String(payload, Charsets.UTF_8))
-                        is String -> queue.offer(payload)
-                        else -> Unit
+                    val text = when (payload) {
+                        is ByteArray -> String(payload, Charsets.UTF_8)
+                        is String -> payload
+                        else -> null
+                    } ?: return
+                    if (text.startsWith(READY_MARKER_PREFIX)) {
+                        readyMarkerFrames.offer(text)
+                    } else {
+                        queue.offer(text)
                     }
                 }
             },
@@ -114,23 +131,29 @@ abstract class StompTestSupport : PostgresTestSupport() {
      * `subscribe()` returns as soon as the frame is queued for send, not once the broker has
      * registered it) can lose that event to exactly this race. This marker handshake is
      * deterministic and bounded rather than a sleep, and is safe to use here because nothing else
-     * publishes to a brand-new session's topic before its first real vote.
+     * publishes to a brand-new session's topic before its first real vote. Polls the shared
+     * [readyMarkerFrames] sink, not the returned queue, so a concurrently-subscribing second
+     * client's handshake can never be mistaken for -- or pollute -- this call's own result.
      */
     protected fun subscribeAndAwaitReady(session: StompSession, sessionId: UUID): LinkedBlockingQueue<String> {
         val queue = subscribeToSessionTopic(session, sessionId)
-        val readyMarker = "__stomp_test_ready__${UUID.randomUUID()}"
+        val readyMarker = "$READY_MARKER_PREFIX${UUID.randomUUID()}"
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {
             messagingTemplate.convertAndSend("/topic/session/$sessionId", readyMarker)
-            val frame = queue.poll(200, TimeUnit.MILLISECONDS)
+            val frame = readyMarkerFrames.poll(200, TimeUnit.MILLISECONDS)
             if (frame == readyMarker) {
                 return queue
             }
-            // Any other frame here would mean real traffic beat the marker to the topic, which
-            // cannot happen before this session's first real vote -- so any non-matching, non-null
-            // frame is treated the same as a miss and the loop just retries the marker.
+            // A non-matching marker here belongs to a different subscription's own handshake
+            // (e.g. a second client subscribing to the same topic) -- discard it and keep
+            // retrying with our own marker; the loop is bounded so this cannot spin forever.
         }
         error("STOMP subscription to /topic/session/$sessionId never became ready within the timeout")
+    }
+
+    private companion object {
+        private const val READY_MARKER_PREFIX = "__stomp_test_ready__"
     }
 
     protected fun cachedMovie(movieId: Long): CachedMovie = CachedMovie(
