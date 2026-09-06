@@ -21,7 +21,7 @@
     {
       "number": "4",
       "name": "Vote Recording & Match Aggregation",
-      "status": "in_progress"
+      "status": "complete"
     },
     {
       "number": "5",
@@ -36,8 +36,8 @@
   ],
   "next": {
     "command": "/gsd:progress --next",
-    "label": "Advance to the next step (verify)",
-    "reason": "Phase 4 of 6 · 33% · ready to verify"
+    "label": "Advance to the next step (plan phase 5)",
+    "reason": "Phase 5 of 6 — needs a plan"
   },
-  "updated_at": "2026-09-05T08:03:34.619Z"
+  "updated_at": "2026-09-06T06:38:19.825Z"
 }
