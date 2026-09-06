@@ -10,9 +10,13 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Phase 5 (Real-Time Notification Layer) — 05-01 executed (see Done); 05-02 (N-of-M progression/fan-out + reconnect reconciliation) not yet started.
+- Phase 5 (Real-Time Notification Layer) — both plans executed (see Done); phase not yet transitioned/closed out (code review, verification, ROADMAP/PROJECT.md transition still pending).
 
 ### Done
+- **Plan 05-02 (N-of-M progression, multi-client fan-out, reconnect reconciliation) —
+  complete (2026-09-06). Phase 5's plans are now all executed.** See dated entry below
+  for full detail. Full plan SUMMARY at
+  `.planning/phases/05-real-time-notification-layer/05-02-SUMMARY.md`.
 - **Plan 05-01 (session-scoped STOMP layer + first end-to-end broadcast proof) —
   complete (2026-09-06).** See dated entry below for full detail. Full plan SUMMARY at
   `.planning/phases/05-real-time-notification-layer/05-01-SUMMARY.md`.
@@ -618,6 +622,62 @@ shared recompute logic across state-mutation verbs, not one isolated command.
 confirm the startup log shows a `/ws` STOMP endpoint with no fallback transport, and
 that `templates/lobby.html` no longer opens a socket) is explicitly scoped by the plan
 to end-of-phase, not this plan — not yet performed.
+
+### 2026-09-06 — Plan 05-02 executed (N-of-M progression, multi-client fan-out, reconnect reconciliation); last plan of Phase 5
+
+**Task 1 (`98e70c9`):** added three tests to `SessionStatusBroadcastTest` (four from
+05-01 untouched): sequential three-participant/two-movie progression asserting
+`finishedCount` climbs exactly 1, 2, 3 against a stable `activeCount` of 3 with
+`isComplete` false until the last finish (RTIME-01); a two-client fan-out test
+asserting both connections receive an identical `isComplete: true` payload with the
+pinned movie in `matchedMovieIds` (RTIME-02, T-05-02); and a cross-session isolation
+test proving a session-A subscriber hears nothing while session B completes, then does
+receive session A's own frame once voted (T-05-08).
+
+Found and fixed a real `StompTestSupport` harness bug mid-task, not anticipated by the
+plan: the fan-out test's second concurrently-subscribed client's readiness-marker
+handshake broadcasts to the whole topic, so its marker was landing in the *first*
+client's already-returned queue and corrupting it with a non-JSON string (a
+`StreamReadException` instead of a clean assertion failure). Fixed by routing all
+marker frames to a dedicated shared sink inside `StompTestSupport`, separate from every
+subscription's real message queue — any test with 2+ concurrent subscribers to the same
+topic was silently exposed to this before.
+
+**Task 2 (`e77ae6d`):** new `ReconnectReconciliationTest` (3 tests) — a witness client
+stays connected throughout while a second client is explicitly disconnected before the
+completing votes, then reconnects with a fresh session and resubscribes; its queue
+yields nothing, proving no last-known-status buffer and no per-client delivery ledger
+(RTIME-03, ARCHITECTURE.md Pattern 4). A REST reconciliation test proves the
+authenticated `/votes/status` body is field-for-field identical to the witness's last
+recorded push, and that the same fetch without an `Authorization` header does not
+return 200 — pinning the deliberate topic-open/REST-authenticated asymmetry (T-05-09).
+A no-subscriber test proves a session completes correctly via both `computeStatus()`
+and REST with zero STOMP clients ever connected — the notification layer can never
+become load-bearing for correctness (T-05-11). Negative source assertion confirms no
+`lastStatus`/`statusCache`/`lastKnown`/`replayBuffer`-shaped field exists anywhere under
+`realtime/` (T-05-10). No new production code — test files only, as scoped.
+
+All tests pass on two consecutive runs per class (second with `--rerun-tasks`); full
+`./gradlew test` and `./gradlew build` green. Plan metadata committed (`c8e4369`). Full
+plan SUMMARY at `.planning/phases/05-real-time-notification-layer/05-02-SUMMARY.md`.
+
+**Drift bug recurred a SIXTH time**, via `state.advance-plan`/`state.update-progress`/
+`state.add-decision`/`state.add-blocker` during this plan's own close-out (05-02 is
+Phase 5's last plan, but Phase 5 itself is not yet transitioned/complete) — reset
+`completed_phases` 4→3 and `percent` 67%→50% repeatedly across the sequence of calls.
+Manually corrected back to 4/67% after the last state-mutating call, per the
+now-established pattern. Six occurrences now span `phase.complete`,
+`state.record-session` (x2), `state.update-progress` (x2), and `state.advance-plan` —
+this is clearly one shared, broken progress-recompute path invoked by essentially every
+state-mutation verb, not an isolated command; worth filing as a real defect upstream
+rather than continuing to hand-patch every single plan close-out.
+
+**Deferred, carried into Phase 6:** two `<human-check>` items remain unperformed
+against a real locally-running app rather than just the automated embedded-server
+suite — 05-01 Task 2's STOMP-endpoint-in-startup-log check, and this plan's Task 2
+reconnect walkthrough. Both plans explicitly scope these to whenever Phase 6's SPA
+first exercises the endpoints from an actual browser, so they're bundled there rather
+than done as a standalone manual pass now.
 
 ## Format for future entries
 
