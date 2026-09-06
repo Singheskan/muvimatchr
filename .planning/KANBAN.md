@@ -10,9 +10,12 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Phase 5 (Real-Time Notification Layer) — planned (2 plans, 2 waves), verification passed, ready to execute.
+- Phase 5 (Real-Time Notification Layer) — 05-01 executed (see Done); 05-02 (N-of-M progression/fan-out + reconnect reconciliation) not yet started.
 
 ### Done
+- **Plan 05-01 (session-scoped STOMP layer + first end-to-end broadcast proof) —
+  complete (2026-09-06).** See dated entry below for full detail. Full plan SUMMARY at
+  `.planning/phases/05-real-time-notification-layer/05-01-SUMMARY.md`.
 - Phase 4 (Vote Recording & Match Aggregation) — executed, code-reviewed, verified, closed (2026-09-06; see Issues Log).
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
 - Phase 1 research, pattern mapping, validation strategy, planning (3 plans), plan
@@ -562,6 +565,59 @@ verify-command-path and failing-direction deterministic probes; all 5 CONTEXT.md
 decisions and all 3 RTIME requirements confirmed visible in plan tasks/must_haves.
 Requirements + decision coverage gates and the post-planning gap-analysis gate all
 passed 8/8. Committed as `4952d64` (plans) and `14f5baa` (STATE.md/PATTERNS.md).
+
+### 2026-09-06 — Plan 05-01 executed (session-scoped STOMP layer + first end-to-end proof)
+
+Resumed a prior interrupted attempt (uncommitted partial diff from a transient API
+error, nothing previously committed). Verified the partial work against the plan and
+found it correct and complete for Task 1, so continued from it rather than redoing it.
+
+**Task 1 (`c548226`):** deleted the prototype `/lobby` WebSocket layer
+(`config/WebSocketConfig.kt`, `controller/WebSocketController.kt`), replaced it with a
+session-scoped STOMP layer in a new `realtime/` package — `/ws` handshake, simple
+broker on `/topic`, a `ChannelInterceptor` rejecting every client `SEND` frame
+(T-05-03), and `SessionEventPublisher.broadcastStatus` registered from
+`VoteService.recordVote()` as an `afterCommit` transaction synchronization so a push
+never precedes the write it describes. `LobbyController.kt`'s one compile dependency
+on the deleted `WebSocketController.LobbyEvent` was repaired by relocating that data
+class into the same file, unrelated Thymeleaf prototype code otherwise untouched.
+Full pre-existing suite green against the new broker config.
+
+**Task 2 (`d85ea4a`):** built `StompTestSupport` (real `@SpringBootTest(RANDOM_PORT)`
+harness, real `WebSocketStompClient`, real session/participant fixtures) and
+`SessionStatusBroadcastTest`'s four end-to-end proofs — a vote produces a push, the
+pushed JSON is field-for-field identical to the REST status JSON including the
+`isComplete` wire name, a REST fetch on push receipt is never older than the push, and
+a forged client `SEND` reaches no subscriber. Two real bugs found and fixed mid-task,
+neither anticipated by the plan text: (1) `StringMessageConverter` (which the plan
+called for) silently drops every real object-broadcast frame because its `text/plain`
+mime-type matching rejects the broker's `application/json`-tagged frames — a same-type
+raw-string test frame passed fine, which made this look like a subscription-timing
+race at first; fixed by leaving the client's default `SimpleMessageConverter` in place
+and requesting a `ByteArray` payload type instead, which performs zero mime-type
+filtering. (2) `StompSession.subscribe()` returns as soon as the frame is queued for
+send, not once the broker has registered it — a genuine race that can silently lose
+the very first broadcast; fixed with a bounded marker-frame round-trip
+(`subscribeAndAwaitReady`) instead of a fixed sleep. Also discovered `TestRestTemplate`
+does not exist anywhere on this project's Spring Boot 4.1.1 classpath (confirmed
+absent even from the dedicated `spring-boot-restclient-test` module) — used
+`java.net.http.HttpClient` instead, keeping the "no new dependency" goal intact.
+
+All four tests pass on two consecutive runs (second with `--rerun-tasks`); full
+`./gradlew test` suite green. Plan metadata committed (`73daf04`, `b286a37`).
+Full plan SUMMARY at `.planning/phases/05-real-time-notification-layer/05-01-SUMMARY.md`.
+
+**Drift bug recurred a FIFTH time**, this time via `state.update-progress`/
+`state.record-session` during this plan's own close-out — reset `completed_phases`
+4→3 and `percent` 67%→50% again, with no phase completion involved. Manually
+corrected back to 4/67%, per the now-established pattern. Five occurrences across
+`phase.complete`, `state.record-session` (x2), and `state.update-progress` — clearly
+shared recompute logic across state-mutation verbs, not one isolated command.
+
+**Deferred:** Task 2's `<human-check>` (start the app against local compose Postgres,
+confirm the startup log shows a `/ws` STOMP endpoint with no fallback transport, and
+that `templates/lobby.html` no longer opens a socket) is explicitly scoped by the plan
+to end-of-phase, not this plan — not yet performed.
 
 ## Format for future entries
 
