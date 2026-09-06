@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 current_phase: 6
 current_phase_name: Frontend SPA
 status: planning
-stopped_at: Phase 05 complete, ready to plan Phase 6
-last_updated: "2026-09-06T12:39:52.863Z"
+stopped_at: Phase 6 context gathered
+last_updated: "2026-09-06T13:14:41.088Z"
 last_activity: 2026-09-06
 last_activity_desc: Phase 05 complete, transitioned to Phase 6
-state_head: a582c212070f330e1299b419803d9730252b45e4
+state_head: d138349362c5f595e89f3df15519d9f400a9e77c
 progress:
   total_phases: 6
   completed_phases: 5
@@ -143,6 +143,7 @@ None yet.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a FIFTH time, this time via `state.update-progress`/`state.record-session` during 05-01's own execution close-out (no phase completion occurred, just this plan finishing) — reset 4→3 completed_phases, 67%→50%. Manually corrected back to 4/67%. Now confirmed across `phase.complete`, `state.record-session` (twice), and `state.update-progress` — the defect is in shared progress-recompute logic invoked by multiple state-mutation verbs, not any single command.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale a SIXTH time, this time via state.advance-plan/state.update-progress during 05-02's own execution close-out (05-02 is the last plan of Phase 05, not yet transitioned) -- reset 4->3 completed_phases, 67%->50%. Manually corrected back to 4/67% (Phase 05 itself is not yet marked complete, only its plans). Now confirmed across phase.complete, state.record-session (x2), state.update-progress, and state.advance-plan -- five distinct state-mutation verbs share the same broken progress-recompute path.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale a SEVENTH time, this time via phase.complete itself when actually transitioning Phase 05 -> Phase 06 (the one call that's supposed to get this right) -- left completed_phases at 4/67% after Phase 05 genuinely completed (state.json correctly showed phase 5 status: complete throughout). Manually corrected to 5/83%. This is now confirmed on phase.complete's own completion path, not just the incidental session-recording verbs -- the shared progress-recompute logic is broken everywhere it's called from, including the one call site whose entire job is to get this number right.
+- STATE.md's progress.completed_phases/percent frontmatter drifted stale an EIGHTH time, this time via state.record-session during Phase 6's /gsd-discuss-phase run (same trigger class as the FOURTH occurrence) -- reset 5->4 completed_phases, 83%->67%, even though no phase completion occurred (Phase 05 was already complete; this was just a context-gathering session). Manually corrected back to 5/83%. Now confirmed on six distinct call sites (phase.complete, state.record-session x3, state.update-progress, state.advance-plan) -- still unfixed, still purely cosmetic (state.json remains correct throughout), but worth actually filing as a defect rather than continuing to hand-patch every phase.
 
 ## Deferred Items
 
@@ -154,6 +155,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-06T12:39:52.863Z
-Stopped at: Phase 05 complete (UAT passed, security verified, nyquist-compliant), ready to plan Phase 6
-Resume file: None
+Last session: 2026-09-06T13:14:40.749Z
+Stopped at: Phase 6 context gathered
+Resume file: /Users/psrg/Projects/MuviMatchr/.planning/phases/06-frontend-spa/06-CONTEXT.md
