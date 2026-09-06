@@ -10,9 +10,13 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Phase 6 (Frontend SPA) — planned (5 plans, 4 waves, verification passed); ready to execute via `/gsd-execute-phase 6`.
+- Phase 6 (Frontend SPA) — executing. 06-01 (SPA scaffold/teardown tracer) and 06-02
+  (session roster read model + endpoint) complete; 06-03/06-04/06-05 remain.
 
 ### Done
+- **Plan 06-02 (session roster read model + membership-gated REST endpoint) — complete
+  (2026-09-06).** See dated entry below for full detail. Full plan SUMMARY at
+  `.planning/phases/06-frontend-spa/06-02-SUMMARY.md`.
 - Phase 5 (Real-Time Notification Layer) — executed, code-reviewed, verified, transitioned/closed (2026-09-06).
 - **Plan 05-02 (N-of-M progression, multi-client fan-out, reconnect reconciliation) —
   complete (2026-09-06). Phase 5's plans are now all executed.** See dated entry below
@@ -863,6 +867,53 @@ Committed plans (`e120e74`), then a small follow-up commit for
 (`42d65c7`).
 
 Next: `/gsd-execute-phase 6` to run all 5 plans.
+
+### 2026-09-06 — Plan 06-02 executed (session roster read model + endpoint)
+
+Executed autonomously (both tasks `type="auto" tdd="true"`, no checkpoints) after
+confirming the plan's Docker precondition was met (`docker info` reachable via Colima
+socket). Each task ran a genuine RED-then-GREEN TDD cycle with its own commit pair:
+
+- **Task 1** — `ParticipantRepository.findBySession_IdOrderByCreatedAtAsc` and
+  `VoteRepository.findVoteCountsByParticipant` (unfiltered by `choice` — a PASS is
+  progress too) added; `MatchAggregationService.computeRoster(sessionId)` computes a
+  join-ordered `SessionRoster` by calling the *same* `findActiveParticipantIds` query
+  `computeStatus` already calls (now exactly two call sites total, enforced by a grep
+  gate) and the same pinned-snapshot `deckSize` guard — no second, independently-
+  drifting inactivity rule. `a8a0159` (test, RED — fails to compile) → `fcf9512`
+  (feat, GREEN — all 6 read-model behaviors pass).
+- **Task 2** — `GET /api/sessions/{sessionId}/votes/roster` added to `VoteController`,
+  inheriting the identical membership guard/401/404 semantics `recordVote`/`getStatus`
+  already use. `SessionRosterResponse`/`ParticipantProgressResponse` DTOs with
+  `@get:JsonProperty` pins on `isFinished`/`isActive` (same Jackson boolean-getter-
+  prefix-stripping fix already applied to `isComplete`). Deliberately no
+  session-level completion flag on the roster shape (prohibition P-02) — verified by
+  a body-content test. To keep RED honest even though Task 1's controller file
+  already existed, `git stash`ed the Task 2 controller diff before running the new
+  MockMvc tests (confirmed 4/5 genuinely fail against the unmodified controller),
+  then restored it for GREEN. `d97178f` (test, RED) → `134d6d6` (feat, GREEN — all 11
+  cases in `SessionRosterTest.kt` pass, full `./gradlew build` green including every
+  Phase 1-5 regression test).
+
+Zero deviations from the plan. RSLT-01 stays `blocked` in REQUIREMENTS.md by design
+(the shared-ID gate, #2388) — 06-03 and 06-04 also declare it, so it won't flip to
+`Complete` until the last of the three plans finishes.
+
+**Recurring bug re-confirmed, 9th/10th occurrences:** `state.advance-plan`,
+`state.add-decision` (x2) and `state.record-session` each independently reset
+STATE.md's frontmatter `progress.completed_phases`/`percent` back down (5→4,
+81%→67%) during this plan's close-out, exactly matching the pattern logged after
+every plan close-out since 05-01. Manually corrected one final time, after all
+state-mutating calls ran, to `completed_phases: 5` / `percent: 86` (18/21 completed
+plans — the same completed_plans/total_plans formula the prior 81% value itself came
+from, 17/21). `state.json` remained correct throughout; only the STATE.md frontmatter
+drifts. Full detail added to STATE.md's own Blockers/Concerns log — worth actually
+filing as a defect against gsd-tools now rather than continuing to hand-patch it.
+
+Full plan SUMMARY: `.planning/phases/06-frontend-spa/06-02-SUMMARY.md`.
+
+Next: 06-03 (swipe deck) and 06-04 (waiting screen), both non-autonomous (contain
+checkpoints), then 06-05 (results view).
 
 ## Format for future entries
 
