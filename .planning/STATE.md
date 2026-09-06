@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
 current_phase: 05
-current_phase_name: real-time-notification-layer
+current_phase_name: Real-Time Notification Layer
 status: executing
-stopped_at: Phase 5 context gathered
-last_updated: "2026-09-06T07:22:26.290Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-09-06T08:02:06.993Z"
 last_activity: 2026-09-06
-last_activity_desc: Phase 04 complete, transitioned to Phase 5
-state_head: 4952d64b162081f350e9f01464bf8182d236c443
+last_activity_desc: Phase 05 execution started
+state_head: d85ea4a696abdeff630d697729f538543bf0d547
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 16
-  completed_plans: 14
-  percent: 50
+  completed_plans: 15
+  percent: 67
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 
 ## Current Position
 
-Phase: 05 (real-time-notification-layer) — READY TO EXECUTE
-Plan: Not started
+Phase: 05 (Real-Time Notification Layer) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-09-06 — Phase 04 complete, transitioned to Phase 5
+Last activity: 2026-09-06 — Phase 05 execution started
 
 Progress: [███████░░░] 67% (Phase 04 of 6 complete)
 
@@ -87,6 +87,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Phase 04 P02 | 42min | 2 tasks | 5 files |
 | Phase 04 P03 | 30min | 2 tasks | 4 files |
 | Phase 04 P04 | 20min | 2 tasks | 2 files |
+| Phase 05 P01 | 30min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 04]: [Phase 04]: Phase 4 Plan 3: idle-participant tests backdate vote.voted_at/participant.created_at via jdbcTemplate rather than Thread.sleep or a shrunken test-only timeout, exercising the real 60s production inactivity window deterministically.
 - [Phase 04]: [Phase 04]: Phase 4 Plan 4: VoteServiceConcurrencyTest asserts Hikari maximumPoolSize exceeds the racing thread count once, inside the race test itself, ruling out the connection pool as an accidental serialiser before trusting the ten-iteration race's result.
 - [Phase 04]: [Phase 04]: Phase 4 Plan 4: RestartSurvivalTest's new service-path durability method reads the post-restart vote row via a direct jdbcTemplate query, not VoteRepository, matching the file's existing flyway_schema_history precedent and keeping the assertion independent of the repository layer under test elsewhere.
+- [Phase 05]: Phase 5 Plan 1: TestRestTemplate does not exist on this project's Spring Boot 4.1.1 classpath (confirmed absent even from spring-boot-restclient-test) -- used java.net.http.HttpClient instead for the REST-vs-push parity fetch, zero new dependency.
+- [Phase 05]: Phase 5 Plan 1: STOMP test client must use the default SimpleMessageConverter with a ByteArray payload type, not StringMessageConverter -- StringMessageConverter's text/plain mime-type matching silently drops the broker's application/json-tagged object broadcasts while still passing same-type string test frames.
 
 ### Pending Todos
 
@@ -127,11 +130,13 @@ None yet.
 - Phase 5 planning should review current `@stomp/stompjs` v7 reconnect/resubscribe semantics before implementation (avoid duplicate-message-on-reconnect). CLARIFIED in 05-CONTEXT.md: this is a Phase 6 (frontend) concern, not Phase 5 — Phase 5 only builds the backend broadcaster (`SessionEventPublisher`/`SimpMessagingTemplate`), no `stompjs` client code.
 - Late-joiner handling: RESOLVED for Phase 2 (see Recent Decisions below — join anytime, no lock). Abandoned-participant handling: RESOLVED in Phase 4 — a computed inactivity timeout (`voting.inactivity-timeout-seconds`, default 60s) excludes an idle participant from both the completion count and the unanimity requirement, non-sticky and non-destructive (one new vote re-includes them immediately, and no vote is ever deleted or discounted).
 - [Phase 04 code review, closed — see 04-REVIEW.md/04-REVIEW-FIX.md]: code review found a Critical race in `SessionService.pinDeck` (no row lock, unlike `VoteService.recordVote`) plus 3 related warnings; all fixed and re-verified. During human verification of those fixes, the orchestrator itself found and fixed 2 further regressions the fixer's static-only pass couldn't catch by executing the suite: the CR-01 fix had hardcoded the deck response's `stale` flag to `false` (broke the outage-fallback test — restored `stale = result.stale`), and the new `DeckPinConcurrencyTest` compared raw JSON strings across a Postgres `jsonb` round-trip (which does not preserve object-key order/whitespace) — fixed to compare parsed movie lists. Lesson for future phases: a code-fixer's Tier-1-only (static re-read) verification is not a substitute for actually running the test suite — schedule that as a required step whenever a fix pass runs in an environment that can't execute Gradle/Testcontainers itself.
-- [Phase 02 code review, advisory/non-blocking — see 02-REVIEW.md]: `V4__add_participant_token.sql` adds `token_hash NOT NULL` with no `DEFAULT` (fine now, fragile if any environment ever seeds participant rows before this migration runs); join-code lookup is case-sensitive with no normalization (a lowercased valid code 404s); no rate limiting on the join endpoint (the 6-char join code, ~1.07B combinations, is the sole access control for a session); the raw bearer token is embedded in the `resumeUrl` query string (already an accepted risk in the phase's threat model, re-flagged since URL-embedded secrets leak via history/referrer/logs). None block Phase 2; worth revisiting before a public deploy (Phase 6+ hosting).
+- [Phase 02 code review, advisory/non-blocking — see 02-REVIEW.md]: `V4__add_participant_token.sql` adds `token_hash NOT NULL` with no `DEFAULT` (fine now, fragile if any environment ever seeds participant rows before this migration runs); join-code lookup is case-sensitive with no normalization (a lowercased valid code 404s); no rate limiting on the join endpoint (the 6-char join code, ~1.07B combinations, is the sole access control for a session); the raw bearer token is embedded in the `resumeUrl` query string (already an accepted risk in the phase's threat model, re-flagged since URL-embedded secrets leak via history/referrer/logs). block Phase 2; worth revisiting before a public deploy (Phase 6+ hosting).
 - [Phase 02 verification]: ROADMAP Phase 2 success criterion 4's vote-attribution clause ("votes they already cast are still attributed to them") is an intentional deferral to Phase 4 — no voting exists yet (out of scope per 02-CONTEXT.md). Phase 2 proves the stable participant identity Phase 4's participant-keyed votes will depend on; this is not a gap.
-- [Phase 03 security, accepted risks — see 03-SECURITY.md]: no rate limiting anywhere in the app yet (same open item as Phase 2's join endpoint — revisit both together before a public deploy); no participant-attributed audit trail for filter changes (deliberate, D-02); TMDB API token has no startup-time presence check (app boots fine with it unset, only fails on first real deck request). None block Phase 3; all accepted with rationale in the security log.
+- [Phase 03 security, accepted risks — see 03-SECURITY.md]: no rate limiting anywhere in the app yet (same open item as Phase 2's join endpoint — revisit both together before a public deploy); no participant-attributed audit trail for filter changes (deliberate, D-02); TMDB API token has no startup-time presence check (app boots fine with it unset, only fails on first real deck request). block Phase 3; all accepted with rationale in the security log.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a THIRD time after this phase's transition (same recurring bug logged 2026-09-03 and again after Phase 3 — `state.record-session`/`phase.complete` is not writing this frontmatter block correctly). Manually corrected 3→4 completed_phases, 50%→67%. `state.json` (the newer state artifact) has been correct all three times; only STATE.md's frontmatter drifts. This is now a confirmed pattern, not a fluke — worth filing as a real defect in the `phase.complete` CLI path rather than continuing to hand-patch it every phase.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a FOURTH time, this time triggered by `state.record-session` during Phase 5's `/gsd-discuss-phase` run (not a `phase.complete` call) — reset 4→3 completed_phases, 67%→50%, even though no phase completion occurred, just a context-gathering session. Manually corrected back to 4/67%. Confirms the defect is broader than `phase.complete` — `state.record-session` itself recomputes/overwrites this block incorrectly on any session-recording call.
+- Phase 5 Plan 1's Task 2 human-check (confirm /ws STOMP endpoint in startup log and that the prototype lobby.html no longer opens a socket) is deferred to end of Phase 5 per the plan itself -- not yet performed as of 05-01's completion.
+- STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a FIFTH time, this time via `state.update-progress`/`state.record-session` during 05-01's own execution close-out (no phase completion occurred, just this plan finishing) — reset 4→3 completed_phases, 67%→50%. Manually corrected back to 4/67%. Now confirmed across `phase.complete`, `state.record-session` (twice), and `state.update-progress` — the defect is in shared progress-recompute logic invoked by multiple state-mutation verbs, not any single command.
 
 ## Deferred Items
 
@@ -143,6 +148,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-06T06:49:12.762Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-real-time-notification-layer/05-CONTEXT.md
+Last session: 2026-09-06T08:02:06.801Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: None
