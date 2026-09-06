@@ -173,7 +173,7 @@ Plans:
   3. The results view displays the single best mutual match's poster, title, and where to watch it.
   4. The swipe deck UI responds to left/right drag gestures and visually reflects each pass/like before advancing to the next card.
 
-**Plans**: 1/5 plans executed
+**Plans**: 2/5 plans executed
 **UI hint**: yes
 
 Plans:
@@ -183,7 +183,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1; these two share no source file and run in parallel)*
 
-- [ ] 06-02-PLAN.md — Named participant roster with per-person voting progress, derived from the same live inactivity rule the completion arithmetic already uses
+- [x] 06-02-PLAN.md — Named participant roster with per-person voting progress, derived from the same live inactivity rule the completion arithmetic already uses
 - [ ] 06-03-PLAN.md — Swipe deck: drag-committed card stack with tilt and directional tint, desktop-only like/pass buttons, mid-deck resume, and a straight-through transition when the deck runs out
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -209,4 +209,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. TMDB Integration & Catalog Caching | 5/5 | Complete    | 2026-09-04 |
 | 4. Vote Recording & Match Aggregation | 4/4 | Complete    | 2026-09-06 |
 | 5. Real-Time Notification Layer | 2/2 | Complete    | 2026-09-06 |
-| 6. Frontend SPA | 1/5 | In Progress|  |
+| 6. Frontend SPA | 2/5 | In Progress|  |

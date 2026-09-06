@@ -31,7 +31,7 @@
     {
       "number": "6",
       "name": "Frontend SPA",
-      "status": "pending"
+      "status": "in_progress"
     }
   ],
   "next": {
@@ -39,5 +39,5 @@
     "label": "Advance to the next step",
     "reason": "Phase 6 of 6 · 67% · executing"
   },
-  "updated_at": "2026-09-06T18:40:51.286Z"
+  "updated_at": "2026-09-06T18:51:50.038Z"
 }

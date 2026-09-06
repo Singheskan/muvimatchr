@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 current_phase: 06
 current_phase_name: Frontend SPA
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-09-06T18:41:05.042Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-09-06T18:52:42.386Z"
 last_activity: 2026-09-06
 last_activity_desc: Phase 06 execution started
-state_head: 95a00cdd94c48731753516b88830b6844db070ef
+state_head: 134d6d6c62fc70384ea867bf74e6be0688401bca
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 21
-  completed_plans: 17
-  percent: 81
+  completed_plans: 18
+  percent: 86
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 06 (Frontend SPA) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
-Last activity: 2026-09-06 — Phase 06 execution started
+Last activity: 2026-09-06 — Phase 06 Plan 2 (session roster read model & endpoint) complete
 
-Progress: [████████░░] 81% (Phase 05 of 6 complete, Plan 1/5 of Phase 06 complete)
+Progress: [████████░░] 86% (Phase 05 of 6 complete, Plan 2/5 of Phase 06 complete)
 
 ## Phase 1 Verification Summary
 
@@ -91,6 +91,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | Phase 05 P01 | 30min | 2 tasks | 9 files |
 | Phase 05 P02 | 25min | 2 tasks | 3 files |
 | Phase 06 P01 | 20min | 4 tasks | 43 files |
+| Phase 06 P02 | 20min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,8 @@ Recent decisions affecting current work:
 - [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer approved D-01 (single deployable JAR) and D-02 (Thymeleaf prototype teardown) as written (approve-both).
 - [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer approved all four npm packages (motion, @stomp/stompjs, @tanstack/react-query, react-router) plus the Vite scaffold set on npmjs.com.
 - [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer verified the browser join flow end-to-end (localhost:8080/s/MH1ZWF -> join -> authenticated read-back) and approved the tracer feedback gate.
+- [Phase 06]: Phase 6 Plan 2: MatchAggregationService.computeRoster reuses findActiveParticipantIds (called exactly twice, no restated inactivity SQL) and the same pinned-snapshot deckSize guard computeStatus uses -- enforced by grep gates, not just convention. — The roster's active/finished markers must never be able to disagree with computeStatus's completion arithmetic (04-CONTEXT.md D-05/D-06/D-07).
+- [Phase 06]: Phase 6 Plan 2: GET /api/sessions/{sessionId}/votes/roster is a new additive endpoint, not a widened VoteStatusResponse -- keeps the Phase 4/5 REST/WebSocket parity contract untouched (P-02: no session-level completion flag on the roster shape). — Widening VoteStatusResponse would have broken the byte-identical REST/WebSocket parity two existing Phase 5 tests assert.
 
 ### Pending Todos
 
@@ -149,6 +152,7 @@ None yet.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale a SEVENTH time, this time via phase.complete itself when actually transitioning Phase 05 -> Phase 06 (the one call that's supposed to get this right) -- left completed_phases at 4/67% after Phase 05 genuinely completed (state.json correctly showed phase 5 status: complete throughout). Manually corrected to 5/83%. This is now confirmed on phase.complete's own completion path, not just the incidental session-recording verbs -- the shared progress-recompute logic is broken everywhere it's called from, including the one call site whose entire job is to get this number right.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale an EIGHTH time, this time via state.record-session during Phase 6's /gsd-discuss-phase run (same trigger class as the FOURTH occurrence) -- reset 5->4 completed_phases, 83%->67%, even though no phase completion occurred (Phase 05 was already complete; this was just a context-gathering session). Manually corrected back to 5/83%. Now confirmed on six distinct call sites (phase.complete, state.record-session x3, state.update-progress, state.advance-plan) -- still unfixed, still purely cosmetic (state.json remains correct throughout), but worth actually filing as a defect rather than continuing to hand-patch every phase.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale a NINTH time, this time via state.advance-plan/state.update-progress during 06-01's own execution close-out (Phase 05 was already complete; only Phase 06 Plan 1 finished) -- reset 5->4 completed_phases, 83%->67% (and update-progress additionally recomputed percent as plans-only 67% rather than phases-plus-plans 81%). Manually corrected to 5 completed_phases / 81%. Same shared progress-recompute defect, seventh and eighth distinct trigger observations on top of the six call sites already logged; still purely cosmetic (state.json remains correct throughout).
+- STATE.md's progress.completed_phases/percent frontmatter drifted stale a TENTH time, this time via state.advance-plan/state.add-decision (x2)/state.record-session during 06-02's own execution close-out (Phase 05 was already complete; only Phase 06 Plan 2 finished) -- reset 5->4 completed_phases, 81%->67% each time. Manually corrected back to 5 completed_phases / 86% (18/21 completed_plans, matching the completed_plans/total_plans formula the prior 81% value itself was computed from: 17/21). Ninth and tenth distinct trigger observations on top of the same shared progress-recompute path; still purely cosmetic (state.json remains correct throughout). This defect has now reproduced on every single state-mutating plan-close-out across three consecutive phases (05-01, 05-02, 06-01, 06-02) -- worth escalating from a per-phase hand-patch note to an actual filed defect against gsd-tools' shared progress-recompute logic.
 
 ## Deferred Items
 
@@ -160,6 +164,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-06T18:41:04.791Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-09-06T18:52:42.053Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
