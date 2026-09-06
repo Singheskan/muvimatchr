@@ -9,6 +9,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.RequestParam
 import java.util.UUID
 
+// Relocated from the now-deleted WebSocketController per 05-CONTEXT.md D-03 -- this prototype
+// lobby controller is scheduled for removal in Phase 6's Thymeleaf teardown, not redesigned here.
+private data class LobbyEvent(val message: String)
+
 @Controller
 class LobbyController(val messagingTemplate: SimpMessagingTemplate) {
 
@@ -33,7 +37,7 @@ class LobbyController(val messagingTemplate: SimpMessagingTemplate) {
         lobbyUsers.putIfAbsent(username, false)
 
         // Notify other users that someone has joined the lobby
-        messagingTemplate.convertAndSend("/topic/lobbyUpdates", WebSocketController.LobbyEvent("$username joined the lobby."))
+        messagingTemplate.convertAndSend("/topic/lobbyUpdates", LobbyEvent("$username joined the lobby."))
 
         // Pass the lobbyId and list of users to the model
         model.addAttribute("lobbyId", lobbyId)
@@ -61,7 +65,7 @@ class LobbyController(val messagingTemplate: SimpMessagingTemplate) {
         lobbyUsers[username] = !(lobbyUsers[username] ?: false)
 
         // Notify other users that someone changed their ready status
-        messagingTemplate.convertAndSend("/topic/lobbyUpdates", WebSocketController.LobbyEvent("$username is ${if (lobbyUsers[username] == true) "ready" else "not ready"}."))
+        messagingTemplate.convertAndSend("/topic/lobbyUpdates", LobbyEvent("$username is ${if (lobbyUsers[username] == true) "ready" else "not ready"}."))
 
         return "redirect:/"
     }

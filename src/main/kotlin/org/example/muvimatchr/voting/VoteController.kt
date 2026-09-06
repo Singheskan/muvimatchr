@@ -65,18 +65,22 @@ class VoteController(
         }
         return matchAggregationService.computeStatus(sessionId).toResponse()
     }
-
-    private fun SessionVoteStatus.toResponse() =
-        VoteStatusResponse(
-            sessionId = sessionId,
-            deckSize = deckSize,
-            activeCount = activeCount,
-            finishedCount = finishedCount,
-            isComplete = isComplete,
-            matchedMovieIds = matchedMovieIds,
-            likeCounts = likeCounts.map { MovieLikeCountResponse(it.movieId, it.likeCount) },
-        )
 }
+
+// Top-level (not a VoteController member) so SessionEventPublisher can map the same
+// SessionVoteStatus to the same VoteStatusResponse shape the REST endpoint returns -- this is
+// what makes the WS payload and the REST payload the same object by construction rather than by
+// convention. Same file, same package, no visibility modifier needed by either call site.
+fun SessionVoteStatus.toResponse() =
+    VoteStatusResponse(
+        sessionId = sessionId,
+        deckSize = deckSize,
+        activeCount = activeCount,
+        finishedCount = finishedCount,
+        isComplete = isComplete,
+        matchedMovieIds = matchedMovieIds,
+        likeCounts = likeCounts.map { MovieLikeCountResponse(it.movieId, it.likeCount) },
+    )
 
 data class VoteRequest(val movieId: Long, val choice: VoteChoice)
 
