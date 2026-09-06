@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Session & Lobby Flow** - Hosts can create sessions and participants can join, get an unguessable token, and resume later without losing votes (completed 2026-09-03)
 - [x] **Phase 3: TMDB Integration & Catalog Caching** - The movie deck is sourced from real TMDB data, filterable by genre and region-aware streaming availability, cached server-side, with the API key never reaching the frontend (completed 2026-09-04)
 - [x] **Phase 4: Vote Recording & Match Aggregation** - Votes are recorded idempotently and the "everyone finished" / "unanimous match" logic is computed correctly and race-free from live data (completed 2026-09-06)
-- [ ] **Phase 5: Real-Time Notification Layer** - Connected participants get live status updates over WebSocket, with reconnects always reconciled against the server as source of truth
+- [x] **Phase 5: Real-Time Notification Layer** - Connected participants get live status updates over WebSocket, with reconnects always reconciled against the server as source of truth (completed 2026-09-06)
 - [ ] **Phase 6: Frontend SPA** - The full join-swipe-wait-results journey is usable end-to-end through a real React SPA, with results visible immediately to anyone who returns later
 
 ## Phase Details
@@ -188,5 +188,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
 | 3. TMDB Integration & Catalog Caching | 5/5 | Complete    | 2026-09-04 |
 | 4. Vote Recording & Match Aggregation | 4/4 | Complete    | 2026-09-06 |
-| 5. Real-Time Notification Layer | 2/2 | In Progress|  |
+| 5. Real-Time Notification Layer | 2/2 | Complete    | 2026-09-06 |
 | 6. Frontend SPA | 0/TBD | Not started | - |
