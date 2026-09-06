@@ -679,6 +679,70 @@ reconnect walkthrough. Both plans explicitly scope these to whenever Phase 6's S
 first exercises the endpoints from an actual browser, so they're bundled there rather
 than done as a standalone manual pass now.
 
+### 2026-09-06 — Phase 5 closed out: worktree degrade, code review, UAT (including a live scripted STOMP walkthrough), Nyquist, security, transition
+
+`/gsd-execute-phase 5` ran both plans. Worktree isolation degraded to sequential for
+the whole phase before any dispatch (#683-class: local `main` was ahead of unpushed
+`origin/main`, so Claude Code's `isolation="worktree"` would have forked from a stale
+`origin/HEAD`). 05-01's first attempt was cut short by a transient API error mid-response
+(no commits made, safe to resume); the resumed attempt completed cleanly. 05-02 executed
+without incident.
+
+Code review (05-REVIEW.md): 0 Critical, 5 Warning, 2 Info — no blockers. Notable warnings:
+a `voting↔realtime` package cycle via `VoteController.toResponse()`; legacy
+`LobbyController.kt`'s pre-existing unsynchronized-map/unchecked-cast risk (still live,
+slated for Phase 6 removal); `StompTestSupport`'s fixed `+1000` movie-ID range as a
+latent test-pollution risk if `deckSize` ever exceeds 1000. Regression gate: full
+136-test suite (all phases) re-run fresh, 0 failures — required manually resolving this
+machine's `JAVA_HOME`/`DOCKER_HOST`/`TESTCONTAINERS_RYUK_DISABLED` env quirks and
+Gradle's up-to-date caching (needed `--rerun-tasks` for a genuine run) since the generic
+regression-gate script has no Kotlin/Gradle branch and would otherwise no-op to `true`.
+
+Phase verifier: 15/15 must-haves, `human_needed` (the two plan-designated end-of-phase
+`<human-check>` items). Persisted as `05-UAT.md` and ran through `/gsd-verify-work 5`.
+
+Mid-UAT, the user questioned whether Phase 4's concurrency UAT (marked `pass` in a prior
+session neither of us could see the transcript of) had actually been run manually or
+just rubber-stamped. Re-ran `VoteServiceConcurrencyTest`/`DeckPinConcurrencyTest` live
+against a genuine concurrent Gradle compile in the background (an unbounded `yes`+`dd`
+load generator was blocked by the auto-mode safety classifier as fork-bomb-shaped; a
+real bounded `gradlew compileKotlin` build substituted cleanly) — both passed under real
+contention, settling the doubt regardless of what happened before.
+
+For Phase 5's own UAT test 1 (startup log + dead `lobby.html` socket), the user did the
+check themselves. For test 2 (live RTIME-03 reconnect walkthrough), the user asked me to
+set it up — driven via a small Node script (`fetch` + a hand-rolled STOMP-over-WebSocket
+client, no new dependencies) against a real running `bootRun` instance. `TMDB_API_TOKEN`
+is still unavailable on this dev machine (same gap as Phase 3), so the deck was pinned by
+seeding `deck_cache_entry` directly via SQL (`docker exec ... psql`) instead of a live
+TMDB fetch — the notification/reconnect behavior under test doesn't depend on where the
+deck data came from. Result: 0 frames on the reconnected STOMP socket after a 3s wait,
+REST status returned `isComplete:true` with the correct `matchedMovieIds`. User reviewed
+the transcript and confirmed pass. (Side note: cleanup after the walkthrough used a
+slightly-too-broad `pkill` that also killed the local Gradle daemon — harmless, it just
+respawns on next build, but worth using a narrower kill target next time.)
+
+Nyquist validation (05-VALIDATION.md, State B/reconstructed): all 4 tasks across both
+plans have automated `<verify>` commands, zero gaps, `nyquist_compliant: true` — no
+auditor spawn needed. Security review (05-SECURITY.md, State B): 11 threats from both
+plans' `<threat_model>` blocks (9 mitigate + 2 accept), every mitigation independently
+grep/test-verified against the actual codebase rather than trusted from the plan text,
+`threats_open: 0`.
+
+Verification canonicalized `human_needed` → `passed` after UAT closed with zero issues.
+Transition ran standalone: `phase.complete` (Phase 5 → Phase 6), PROJECT.md evolved (new
+Key Decisions rows for the STOMP transport/after-commit-broadcast/no-replay-cache/
+accepted-risk decisions; the two frontend-half Active requirements annotated with what
+Phase 5's backend delivered, left un-Validated since no UI exists yet).
+
+**Drift bug recurred a SEVENTH time** — this time on `phase.complete` itself, the one
+call whose entire job is getting this number right: after genuinely completing Phase 5,
+STATE.md's frontmatter was left at `completed_phases: 4`/`67%` (state.json correctly
+showed phase 5 `status: complete` throughout — only STATE.md's frontmatter block is
+affected, as with all six prior occurrences). Manually corrected to `5`/`83%`. This is no
+longer "some state-mutation verbs have a shared bug" — the primary, intended call site
+for marking a phase done also hits it. Filing this upstream is overdue.
+
 ## Format for future entries
 
 ```
