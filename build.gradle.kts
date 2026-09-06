@@ -58,3 +58,36 @@ kotlin {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
+
+// D-01: single deployable JAR. These two tasks build the frontend/ Vite React+TS SPA and copy its
+// output into the resources the boot jar packages, so one artifact serves both the REST/WebSocket
+// API and the SPA from one origin -- no CORS config, no second hosting target. Both are gated on
+// -PskipFrontendBuild so a backend-only test loop can skip the npm round-trip.
+val npmInstall = tasks.register<Exec>("npmInstall") {
+	workingDir = file("frontend")
+	commandLine("npm", "ci")
+	inputs.file("frontend/package.json")
+	inputs.file("frontend/package-lock.json")
+	outputs.dir("frontend/node_modules")
+	onlyIf { !project.hasProperty("skipFrontendBuild") }
+}
+
+val buildFrontend = tasks.register<Exec>("buildFrontend") {
+	dependsOn(npmInstall)
+	workingDir = file("frontend")
+	commandLine("npm", "run", "build")
+	inputs.dir("frontend/src")
+	inputs.file("frontend/index.html")
+	inputs.file("frontend/vite.config.ts")
+	outputs.dir("frontend/dist")
+	onlyIf { !project.hasProperty("skipFrontendBuild") }
+}
+
+// Copies frontend/dist into this task's OWN output (build/resources/main/static), never into
+// src/main/resources/static -- that would put Vite build output under version control.
+tasks.named<ProcessResources>("processResources") {
+	dependsOn(buildFrontend)
+	from("frontend/dist") {
+		into("static")
+	}
+}

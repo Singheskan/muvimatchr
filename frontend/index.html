@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- D-05 keeps the participant token in the URL query string; poster images load
+         cross-origin from TMDB's image CDN, so this stops the token-bearing URL riding
+         along in a Referer header (threat T-06-04). -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>MuviMatchr</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
