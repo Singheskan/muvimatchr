@@ -10,9 +10,10 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Phase 4 (Vote Recording & Match Aggregation) — context gathered, ready to plan.
+- Phase 5 (Real-Time Notification Layer) — context gathered, ready to plan.
 
 ### Done
+- Phase 4 (Vote Recording & Match Aggregation) — executed, code-reviewed, verified, closed (2026-09-06; see Issues Log).
 - Project setup: PROJECT.md, REQUIREMENTS.md (22 v1 requirements), ROADMAP.md (6 phases).
 - Phase 1 research, pattern mapping, validation strategy, planning (3 plans), plan
   verification (0 blockers/warnings), requirements + decision coverage gates.
@@ -137,7 +138,7 @@ the human-readable history across the whole project.
   path).
 
 ### Next
-- Plan Phase 4 (Vote Recording & Match Aggregation) — `/gsd-plan-phase 4`.
+- Plan Phase 5 (Real-Time Notification Layer) — `/gsd-plan-phase 5`.
 
 ---
 
@@ -494,6 +495,40 @@ architectural decisions logged).
 pattern across three separate phase transitions, not a fluke.
 
 **Next:** `/gsd-discuss-phase 5` or `/gsd-plan-phase 5` — Real-Time Notification Layer.
+
+### 2026-09-06 — Phase 5 context gathered; `state.record-session` drift recurred a fourth time (now confirmed broader than `phase.complete`)
+Ran `/gsd-discuss-phase 5`. Prior project research (`ARCHITECTURE.md`, `STACK.md`,
+`PITFALLS.md` from the original roadmap research) had already answered almost all of
+the "how": STOMP over WebSocket, `/topic/session/{id}` broadcast, fresh-DB-read before
+every broadcast, and "reconnect-safe client, not reconnect-safe server" (client always
+does a REST status fetch on connect/reconnect; WS is a push convenience only, never
+the record of truth). The existing `VoteController.getStatus()` REST endpoint already
+returns everything needed for that reconciliation — this phase only adds a publisher
+on top of `MatchAggregationService`, no new aggregation logic.
+
+Presented 4 genuinely open gray areas (WS subscription security, disposition of the
+legacy prototype `WebSocketConfig.kt`/`WebSocketController.kt` `/lobby` toy code,
+manual-vs-automated verification given no frontend exists yet, and broadcast trigger
+scope). User's answer: "you can always take your first assumption" — proceed with
+Claude's own default recommendation on each rather than debate turn-by-turn. Resolved:
+(1) defer STOMP-level token validation as an accepted risk, same pattern as Phase 2/3's
+already-accepted "no rate limiting" — topic keyed by session UUID, not the weaker
+6-char join code; (2) delete the legacy lobby-prototype WS files now, fully superseded;
+(3) automated `WebSocketStompClient` integration tests only, no throwaway manual HTML
+page — matches Phases 1-4's backend-first pattern; (4) broadcast triggers only from
+`VoteService.recordVote()`, no scheduled job for idle-timeout transitions (they
+self-correct on next read per Phase 4's D-07 "always live, never sticky" rule). Full
+detail in `05-CONTEXT.md`/`05-DISCUSSION-LOG.md`.
+
+**Drift bug recurred a fourth time, and this occurrence narrows the cause:** this was
+a plain `/gsd-discuss-phase` context-gathering session — no `phase.complete` call at
+all — yet `STATE.md` frontmatter still reset `completed_phases` 4→3 and `percent`
+67%→50% via `state.record-session`. The first three occurrences (2026-09-03, twice
+2026-09-04/09-06) all happened around `phase.complete`, which pointed suspicion there;
+this one proves `state.record-session` itself is the actual culprit, independent of
+phase completion. Manually corrected back to 4/67% and committed (`d0a9aa6`). Four
+occurrences now — worth filing as a real `gsd-core` defect rather than continuing to
+hand-patch every session.
 
 ## Format for future entries
 
