@@ -150,7 +150,16 @@ Plans:
   2. When the last participant finishes, all currently-connected participants automatically transition to the results view with no manual action.
   3. A participant who disconnects and reconnects (e.g., closes and reopens the tab, or drops network briefly) always sees correct current status on reconnect, reconciled via a REST status fetch — never a stale cached WebSocket state.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 05-01-PLAN.md — Tracer: the prototype lobby socket replaced by a session-scoped STOMP layer, with one committed vote pushing one frame whose JSON is identical to the REST status body
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 05-02-PLAN.md — Waiting-on-N-of-M progression, the completion push fanned out to every connected client, and a reconnecting client proven to get no replay and to reconcile onto the true state over REST
 
 ### Phase 6: Frontend SPA
 
@@ -179,5 +188,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Session & Lobby Flow | 2/2 | Complete    | 2026-09-03 |
 | 3. TMDB Integration & Catalog Caching | 5/5 | Complete    | 2026-09-04 |
 | 4. Vote Recording & Match Aggregation | 4/4 | Complete    | 2026-09-06 |
-| 5. Real-Time Notification Layer | 0/TBD | Not started | - |
+| 5. Real-Time Notification Layer | 0/2 | Planned | - |
 | 6. Frontend SPA | 0/TBD | Not started | - |
