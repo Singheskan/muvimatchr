@@ -455,6 +455,46 @@ and committed (`dcd9c25`), same as the prior occurrence. **Still not fixed upstr
 STATE.md's own Blockers note before this). Worth filing/checking a gsd-core issue
 rather than continuing to patch it by hand every phase transition.
 
+### 2026-09-06 — Phase 4 executed, code-reviewed, and closed out
+Ran all 4 plans of Phase 4 (Vote Recording & Match Aggregation) sequentially — worktree
+isolation auto-degraded for the whole run because local `main` was ahead of
+`origin/main` (per #683's base-check). Wave 1 (04-01) wired the tracer path end-to-end
+(deck pinning, transactional vote recording, live status); Wave 2 (04-02, 04-03) added
+genre-as-session-state filter locking and unanimous-match/like-count aggregation; Wave
+3 (04-04) proved concurrency and restart durability with 10-iteration races against
+real Postgres. Each executor self-fixed a handful of Rule-1 bugs discovered while
+running its own plan's verification (a Jackson field-name bug, test-fixture cache
+pollution, a pre-existing test broken by pinning) — all documented in their SUMMARYs.
+
+**Code review found a real gap:** CR-01 — `SessionService.pinDeck` had no row lock
+(unlike `VoteService.recordVote`), so concurrent first-time deck pins could race, and
+the HTTP response was built from the caller's own fetch rather than the persisted
+snapshot. Fixed (plus 3 related warnings) via `gsd-code-fixer`. **Human verification
+of those fixes then caught two regressions the fixer's static-only pass couldn't
+have seen without running the suite:** the CR-01 fix had hardcoded the deck response's
+`stale` flag to `false` (broke the outage-fallback test), and the new
+`DeckPinConcurrencyTest` compared raw JSON strings across a Postgres `jsonb` round-trip
+(which doesn't preserve object-key order/whitespace) — a false-positive test failure,
+not a real concurrency bug. Both fixed and verified stable across repeated runs.
+**Lesson:** a code-fixer's Tier-1 (re-read, no execution) verification is not a
+substitute for actually running the test suite when the environment can support it —
+worth building that into the fix-pass protocol rather than relying on ad hoc
+follow-up.
+
+Nyquist validation: 8/8 per-task rows had real, named, passing tests — zero gaps,
+`nyquist_compliant: true`. Security review: 22 threats across all 4 plans (plus 2 more
+closed by the code-review fix pass) — all mitigated/accepted, `threats_open: 0`. UAT:
+1 item (concurrency-under-real-load, the plan's own designated human-check) — passed.
+Phase marked complete, PROJECT.md evolved (4 requirements moved to Validated, 4 new
+architectural decisions logged).
+
+**Drift bug recurred a third time** (see prior 2026-09-03/2026-09-04 entries):
+`STATE.md` frontmatter's `completed_phases`/`percent` again lagged `state.json` after
+`phase.complete` ran (3→4, 50%→67% needed manual correction). This is now a confirmed
+pattern across three separate phase transitions, not a fluke.
+
+**Next:** `/gsd-discuss-phase 5` or `/gsd-plan-phase 5` — Real-Time Notification Layer.
+
 ## Format for future entries
 
 ```
