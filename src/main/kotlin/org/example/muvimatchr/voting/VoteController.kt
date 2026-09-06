@@ -65,6 +65,20 @@ class VoteController(
         }
         return matchAggregationService.computeStatus(sessionId).toResponse()
     }
+
+    // RSLT-01/D-10, T-06-06: identical membership guard to recordVote/getStatus -- membership
+    // (404) is checked before any data is computed or returned. Deliberately does NOT return a
+    // session-level completion flag (P-02); that authority lives only on VoteStatusResponse.
+    @GetMapping("/{sessionId}/votes/roster")
+    fun getRoster(
+        @PathVariable sessionId: UUID,
+        @CurrentParticipant participant: Participant,
+    ): SessionRosterResponse {
+        if (participant.session.id != sessionId) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "No such participant in this session")
+        }
+        return matchAggregationService.computeRoster(sessionId).toResponse()
+    }
 }
 
 // Top-level (not a VoteController member) so SessionEventPublisher can map the same
@@ -80,6 +94,22 @@ fun SessionVoteStatus.toResponse() =
         isComplete = isComplete,
         matchedMovieIds = matchedMovieIds,
         likeCounts = likeCounts.map { MovieLikeCountResponse(it.movieId, it.likeCount) },
+    )
+
+// Top-level, mirroring SessionVoteStatus.toResponse() above -- consistent with the file's shape.
+fun SessionRoster.toResponse() =
+    SessionRosterResponse(
+        sessionId = sessionId,
+        deckSize = deckSize,
+        participants = participants.map {
+            ParticipantProgressResponse(
+                participantId = it.participantId,
+                displayName = it.displayName,
+                votedCount = it.votedCount,
+                isFinished = it.isFinished,
+                isActive = it.isActive,
+            )
+        },
     )
 
 data class VoteRequest(val movieId: Long, val choice: VoteChoice)
@@ -100,3 +130,23 @@ data class VoteStatusResponse(
 )
 
 data class MovieLikeCountResponse(val movieId: Long, val likeCount: Int)
+
+data class SessionRosterResponse(
+    val sessionId: UUID,
+    val deckSize: Int,
+    val participants: List<ParticipantProgressResponse>,
+)
+
+data class ParticipantProgressResponse(
+    val participantId: UUID,
+    val displayName: String,
+    val votedCount: Int,
+    // Same fix as VoteStatusResponse.isComplete above: Kotlin generates isFinished()/isActive()
+    // getters, and Jackson's bean introspection strips the leading two-letter prefix from boolean
+    // getters, which would otherwise serialize these as "finished"/"active" instead of the wire
+    // names the SPA's TypeScript type declares.
+    @get:JsonProperty("isFinished")
+    val isFinished: Boolean,
+    @get:JsonProperty("isActive")
+    val isActive: Boolean,
+)
