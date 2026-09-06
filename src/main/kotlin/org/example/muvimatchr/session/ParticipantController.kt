@@ -23,7 +23,7 @@ class ParticipantController(private val participantService: ParticipantService) 
     fun join(@PathVariable joinCode: String, @Valid @RequestBody request: JoinRequest): ResponseEntity<JoinResponse> {
         val result = participantService.join(joinCode, request.displayName)
         val participant = result.participant
-        val resumeUrl = "/session/${participant.session.id}?token=${result.rawToken}"
+        val resumeUrl = "/s/${participant.session.joinCode}?token=${result.rawToken}"
         return ResponseEntity.status(HttpStatus.CREATED).body(
             JoinResponse(
                 participantId = participant.id!!,

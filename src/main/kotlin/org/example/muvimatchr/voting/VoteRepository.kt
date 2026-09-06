@@ -113,4 +113,21 @@ interface VoteRepository : JpaRepository<Vote, UUID> {
         @Param("sessionId") sessionId: UUID,
         @Param("likeChoice") likeChoice: String,
     ): List<Array<Any>>
+
+    // Backs SessionBootstrapController: the movie ids a resuming participant has already voted on
+    // in this session, so the SPA can skip re-showing already-swiped cards (SESH-05 read through
+    // the SPA). Never another participant's ids -- scoped by both sessionId and participantId.
+    @Query(
+        value = """
+            SELECT v.movie_id
+            FROM vote v
+            WHERE v.session_id = CAST(:sessionId AS uuid) AND v.participant_id = CAST(:participantId AS uuid)
+            ORDER BY v.movie_id
+        """,
+        nativeQuery = true,
+    )
+    fun findMovieIdsVotedBy(
+        @Param("sessionId") sessionId: UUID,
+        @Param("participantId") participantId: UUID,
+    ): List<Long>
 }
