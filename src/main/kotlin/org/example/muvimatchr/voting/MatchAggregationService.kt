@@ -1,5 +1,6 @@
 package org.example.muvimatchr.voting
 
+import org.example.muvimatchr.session.ParticipantRepository
 import org.example.muvimatchr.session.SessionRepository
 import org.example.muvimatchr.session.SessionService
 import org.springframework.beans.factory.annotation.Value
@@ -17,6 +18,7 @@ class MatchAggregationService(
     private val sessionRepository: SessionRepository,
     private val sessionService: SessionService,
     private val voteRepository: VoteRepository,
+    private val participantRepository: ParticipantRepository,
 ) {
     // D-05/D-06: a participant who joined but stopped voting is handled via a computed inactivity
     // timeout rather than "wait forever" or a manual exclude/kick action. Configurable so tests
@@ -82,6 +84,39 @@ class MatchAggregationService(
     fun perMovieLikeCounts(sessionId: UUID): List<MovieLikeCount> =
         voteRepository.findLikeCountsBySession(sessionId, VoteChoice.LIKE.name)
             .map { row -> MovieLikeCount((row[0] as Number).toLong(), (row[1] as Number).toInt()) }
+
+    // RSLT-01/D-10: the named per-person roster the waiting screen needs. Reuses the same
+    // inactivity rule and deckSize source computeStatus already uses -- see the class-level
+    // caching prohibition and the findActiveParticipantIds call below, which must remain the
+    // single place the inactivity expression lives.
+    fun computeRoster(sessionId: UUID): SessionRoster {
+        val session = sessionRepository.findById(sessionId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "No session with id $sessionId") }
+        // Pitfall D, same guard as computeStatus: deckSize is always derived from the pinned
+        // snapshot, never a separate catalog re-query.
+        val deckSize = sessionService.pinnedMovies(session).size
+        // Call the shared query; do not restate the inactivity rule here. The fallback expression
+        // inside that repository query (last vote time, falling back to join time) is D-06 stated
+        // exactly once, and a second copy anywhere in this service would be free to drift from the
+        // one the completion arithmetic uses.
+        val activeIds = voteRepository.findActiveParticipantIds(sessionId, inactivityTimeoutSeconds).toSet()
+        val votedCounts = voteRepository.findVoteCountsByParticipant(sessionId)
+            .associate { row -> (row[0] as UUID) to (row[1] as Number).toInt() }
+
+        val participants = participantRepository.findBySession_IdOrderByCreatedAtAsc(sessionId).map { p ->
+            val votedCount = votedCounts[p.id] ?: 0
+            ParticipantProgress(
+                participantId = p.id!!,
+                displayName = p.displayName,
+                votedCount = votedCount,
+                // Load-bearing deckSize > 0 conjunct, same as computeStatus: without it a
+                // never-pinned session would report every zero-vote participant as finished.
+                isFinished = deckSize > 0 && votedCount >= deckSize,
+                isActive = p.id in activeIds,
+            )
+        }
+        return SessionRoster(sessionId, deckSize, participants)
+    }
 }
 
 data class MovieLikeCount(
@@ -97,4 +132,18 @@ data class SessionVoteStatus(
     val isComplete: Boolean,
     val matchedMovieIds: List<Long>,
     val likeCounts: List<MovieLikeCount>,
+)
+
+data class ParticipantProgress(
+    val participantId: UUID,
+    val displayName: String,
+    val votedCount: Int,
+    val isFinished: Boolean,
+    val isActive: Boolean,
+)
+
+data class SessionRoster(
+    val sessionId: UUID,
+    val deckSize: Int,
+    val participants: List<ParticipantProgress>,
 )

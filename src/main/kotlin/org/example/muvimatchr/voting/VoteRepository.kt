@@ -130,4 +130,20 @@ interface VoteRepository : JpaRepository<Vote, UUID> {
         @Param("sessionId") sessionId: UUID,
         @Param("participantId") participantId: UUID,
     ): List<Long>
+
+    // Backs the roster's per-person votedCount: counts every vote regardless of choice -- a PASS
+    // is progress through the deck just as much as a LIKE -- in deliberate contrast to
+    // findLikeCountsBySession, which filters on choice.
+    @Query(
+        value = """
+            SELECT v.participant_id, COUNT(*)
+            FROM vote v
+            WHERE v.session_id = CAST(:sessionId AS uuid)
+            GROUP BY v.participant_id
+        """,
+        nativeQuery = true,
+    )
+    fun findVoteCountsByParticipant(
+        @Param("sessionId") sessionId: UUID,
+    ): List<Array<Any>>
 }
