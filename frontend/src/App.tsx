@@ -1,16 +1,17 @@
 import { Route, Routes } from 'react-router'
 import { JoinScreen } from './routes/JoinScreen'
+import { SwipeScreen } from './routes/SwipeScreen'
 
-// D-04's route table. /s/:code/swipe, /s/:code/wait and /s/:code/results all map to JoinScreen
-// for now -- later plans (06-02 through 06-05) replace those three targets with the real swipe
-// deck, waiting screen and results screen. No client-side redirect from "/" into a session: the
-// bare root just tells the user to open a session link.
+// D-04's route table. /s/:code/wait and /s/:code/results still map to JoinScreen for now --
+// plans 06-04 and 06-05 replace those two targets with the real waiting and results screens. No
+// client-side redirect from "/" into a session: the bare root just tells the user to open a
+// session link.
 function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePlaceholder />} />
       <Route path="/s/:code" element={<JoinScreen />} />
-      <Route path="/s/:code/swipe" element={<JoinScreen />} />
+      <Route path="/s/:code/swipe" element={<SwipeScreen />} />
       <Route path="/s/:code/wait" element={<JoinScreen />} />
       <Route path="/s/:code/results" element={<JoinScreen />} />
     </Routes>

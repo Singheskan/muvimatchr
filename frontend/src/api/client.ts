@@ -1,4 +1,10 @@
-import type { JoinResponse, SessionBootstrapResponse } from './types'
+import type {
+  DeckResponse,
+  JoinResponse,
+  SessionBootstrapResponse,
+  VoteChoice,
+  VoteStatusResponse,
+} from './types'
 
 // Carries the response status and body text on any non-2xx response -- callers must branch on
 // `status` rather than get a silently-empty result on failure.
@@ -57,5 +63,24 @@ export async function joinSession(joinCode: string, displayName: string): Promis
 export async function fetchBootstrap(joinCode: string, token: string): Promise<SessionBootstrapResponse> {
   return apiFetch<SessionBootstrapResponse>(`/api/sessions/by-code/${encodeURIComponent(joinCode)}/me`, {
     token,
+  })
+}
+
+// The deck is immutable once pinned (Phase 4 D-01); this call is also what triggers the lazy
+// server-side pin on a session's first deck fetch.
+export async function fetchDeck(sessionId: string, token: string): Promise<DeckResponse> {
+  return apiFetch<DeckResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/deck`, { token })
+}
+
+export async function postVote(
+  sessionId: string,
+  token: string,
+  movieId: number,
+  choice: VoteChoice,
+): Promise<VoteStatusResponse> {
+  return apiFetch<VoteStatusResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/votes`, {
+    token,
+    method: 'POST',
+    body: { movieId, choice },
   })
 }

@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DeckResponse } from '../api/types'
 import { SwipeScreen } from './SwipeScreen'
 
 const SESSION_ID = 'session-1'
@@ -19,14 +20,14 @@ function bootstrapResponse(votedMovieIds: number[] = []) {
   }
 }
 
-function deckResponse(overrides: Partial<ReturnType<typeof baseDeck>> = {}) {
+function deckResponse(overrides: Partial<DeckResponse> = {}): DeckResponse {
   return { ...baseDeck(), ...overrides }
 }
 
-function baseDeck() {
+function baseDeck(): DeckResponse {
   return {
     sessionId: SESSION_ID,
-    status: 'ok' as const,
+    status: 'ok',
     stale: false,
     fetchedAt: '2026-01-01T00:00:00Z',
     totalResults: 4,
@@ -74,7 +75,7 @@ describe('SwipeScreen', () => {
 
   function mockFetch(options: {
     votedMovieIds?: number[]
-    deck?: ReturnType<typeof deckResponse>
+    deck?: DeckResponse
     voteResult?: 'ok' | { status: number; body: string }
   }) {
     const mockFetchFn = fetch as unknown as ReturnType<typeof vi.fn>
@@ -154,18 +155,18 @@ describe('SwipeScreen', () => {
       expect(screen.getByText('Movie 10')).toBeInTheDocument()
     })
 
-    screen.getByRole('button', { name: /^like$/i }).click()
+    fireEvent.click(screen.getByRole('button', { name: /^like$/i }))
 
     await waitFor(() => {
       expect(screen.getByText('Movie 20')).toBeInTheDocument()
     })
 
     const voteCalls = mockFetchFn.mock.calls.filter(
-      ([url, init]: [string, RequestInit | undefined]) => url.endsWith('/votes') && init?.method === 'POST',
+      (call) => (call[0] as string).endsWith('/votes') && (call[1] as RequestInit | undefined)?.method === 'POST',
     )
     expect(voteCalls).toHaveLength(1)
-    const [, init] = voteCalls[0]
-    expect(JSON.parse(init!.body as string)).toEqual({ movieId: 10, choice: 'LIKE' })
+    const init = voteCalls[0][1] as RequestInit
+    expect(JSON.parse(init.body as string)).toEqual({ movieId: 10, choice: 'LIKE' })
   })
 
   it('does not advance the cursor and shows an error when the vote is rejected', async () => {
@@ -176,7 +177,7 @@ describe('SwipeScreen', () => {
       expect(screen.getByText('Movie 10')).toBeInTheDocument()
     })
 
-    screen.getByRole('button', { name: /^like$/i }).click()
+    fireEvent.click(screen.getByRole('button', { name: /^like$/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument()
@@ -192,7 +193,7 @@ describe('SwipeScreen', () => {
       expect(screen.getByText('Movie 40')).toBeInTheDocument()
     })
 
-    screen.getByRole('button', { name: /^like$/i }).click()
+    fireEvent.click(screen.getByRole('button', { name: /^like$/i }))
 
     await waitFor(() => {
       expect(screen.getByText('waiting screen')).toBeInTheDocument()
