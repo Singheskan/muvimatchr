@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-current_phase: 05
-current_phase_name: Real-Time Notification Layer
-status: verifying
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-09-06T08:14:47.109Z"
+current_phase: 6
+current_phase_name: Frontend SPA
+status: planning
+stopped_at: Phase 05 complete, ready to plan Phase 6
+last_updated: "2026-09-06T12:39:52.863Z"
 last_activity: 2026-09-06
-last_activity_desc: Phase 05 execution started
-state_head: e77ae6dbee91e921b49b23f33c12ffe28f400961
+last_activity_desc: Phase 05 complete, transitioned to Phase 6
+state_head: a582c212070f330e1299b419803d9730252b45e4
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 16
   completed_plans: 16
-  percent: 67
+  percent: 83
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-06)
 
 **Core value:** Two (or more) people with different tastes can independently pick movies they'd watch and get a fast, confident answer to "what do we actually both want to watch tonight" — without the back-and-forth debate.
-**Current focus:** Phase 05 — Real-Time Notification Layer
+**Current focus:** Phase 06 — Frontend SPA
 
 ## Current Position
 
-Phase: 05 (Real-Time Notification Layer) — EXECUTING
-Plan: 2 of 2
-Status: Phase complete — ready for verification
-Last activity: 2026-09-06 — Phase 05 execution started
+Phase: 6 — Frontend SPA
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-09-06 — Phase 05 complete, transitioned to Phase 6
 
-Progress: [███████░░░] 67% (Phase 04 of 6 complete)
+Progress: [████████░░] 83% (Phase 05 of 6 complete)
 
 ## Phase 1 Verification Summary
 
@@ -59,7 +59,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 
 **Velocity:**
 
-- Total plans completed: 11
+- Total plans completed: 13
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -70,6 +70,7 @@ independently re-run on `main` post-merge (`./gradlew test`, 6/6 green, 0 failur
 | 02 | 2 | - | - |
 | 03 | 5 | - | - |
 | 04 | 4 | - | - |
+| 05 | 2 | - | - |
 
 **Recent Trend:**
 
@@ -119,6 +120,7 @@ Recent decisions affecting current work:
 - [Phase 05]: Phase 5 Plan 1: TestRestTemplate does not exist on this project's Spring Boot 4.1.1 classpath (confirmed absent even from spring-boot-restclient-test) -- used java.net.http.HttpClient instead for the REST-vs-push parity fetch, zero new dependency.
 - [Phase 05]: Phase 5 Plan 1: STOMP test client must use the default SimpleMessageConverter with a ByteArray payload type, not StringMessageConverter -- StringMessageConverter's text/plain mime-type matching silently drops the broker's application/json-tagged object broadcasts while still passing same-type string test frames.
 - [Phase 05]: [Phase 05]: Phase 5 Plan 2: StompTestSupport's readiness-marker handshake is topic-wide and was corrupting a co-subscribed client's queue with non-JSON marker frames -- fixed by routing markers to a dedicated shared sink separate from each subscription's real message queue, required once any test holds 2+ concurrently subscribed StompSessions on the same topic.
+- [Phase 05]: Both plan-designated end-of-phase human-check items (startup log /ws confirmation + dead lobby.html socket; live RTIME-03 reconnect walkthrough) were performed during /gsd-verify-work against a real running instance rather than deferred to Phase 6. Since TMDB_API_TOKEN is unavailable on this dev machine (same gap as Phase 3), the deck was seeded directly via SQL insert into deck_cache_entry (bypassing the real TMDB call) rather than through a live fetch -- the notification/reconnect behavior under test doesn't depend on where the deck data came from. Both checks passed: 0 frames on a reconnected STOMP socket, REST reconciliation returned the correct completed state.
 
 ### Pending Todos
 
@@ -137,9 +139,10 @@ None yet.
 - [Phase 03 security, accepted risks — see 03-SECURITY.md]: no rate limiting anywhere in the app yet (same open item as Phase 2's join endpoint — revisit both together before a public deploy); no participant-attributed audit trail for filter changes (deliberate, D-02); TMDB API token has no startup-time presence check (app boots fine with it unset, only fails on first real deck request). block Phase 3; all accepted with rationale in the security log.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a THIRD time after this phase's transition (same recurring bug logged 2026-09-03 and again after Phase 3 — `state.record-session`/`phase.complete` is not writing this frontmatter block correctly). Manually corrected 3→4 completed_phases, 50%→67%. `state.json` (the newer state artifact) has been correct all three times; only STATE.md's frontmatter drifts. This is now a confirmed pattern, not a fluke — worth filing as a real defect in the `phase.complete` CLI path rather than continuing to hand-patch it every phase.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a FOURTH time, this time triggered by `state.record-session` during Phase 5's `/gsd-discuss-phase` run (not a `phase.complete` call) — reset 4→3 completed_phases, 67%→50%, even though no phase completion occurred, just a context-gathering session. Manually corrected back to 4/67%. Confirms the defect is broader than `phase.complete` — `state.record-session` itself recomputes/overwrites this block incorrectly on any session-recording call.
-- Phase 5 Plan 1's Task 2 human-check (confirm /ws STOMP endpoint in startup log and that the prototype lobby.html no longer opens a socket) is deferred to end of Phase 5 per the plan itself -- not yet performed as of 05-01's completion.
+- [RESOLVED] Phase 5 Plan 1's Task 2 human-check (confirm /ws STOMP endpoint in startup log and that the prototype lobby.html no longer opens a socket) — performed live during /gsd-verify-work 05, passed.
 - STATE.md's `progress.completed_phases`/`percent` frontmatter drifted stale a FIFTH time, this time via `state.update-progress`/`state.record-session` during 05-01's own execution close-out (no phase completion occurred, just this plan finishing) — reset 4→3 completed_phases, 67%→50%. Manually corrected back to 4/67%. Now confirmed across `phase.complete`, `state.record-session` (twice), and `state.update-progress` — the defect is in shared progress-recompute logic invoked by multiple state-mutation verbs, not any single command.
 - STATE.md's progress.completed_phases/percent frontmatter drifted stale a SIXTH time, this time via state.advance-plan/state.update-progress during 05-02's own execution close-out (05-02 is the last plan of Phase 05, not yet transitioned) -- reset 4->3 completed_phases, 67%->50%. Manually corrected back to 4/67% (Phase 05 itself is not yet marked complete, only its plans). Now confirmed across phase.complete, state.record-session (x2), state.update-progress, and state.advance-plan -- five distinct state-mutation verbs share the same broken progress-recompute path.
+- STATE.md's progress.completed_phases/percent frontmatter drifted stale a SEVENTH time, this time via phase.complete itself when actually transitioning Phase 05 -> Phase 06 (the one call that's supposed to get this right) -- left completed_phases at 4/67% after Phase 05 genuinely completed (state.json correctly showed phase 5 status: complete throughout). Manually corrected to 5/83%. This is now confirmed on phase.complete's own completion path, not just the incidental session-recording verbs -- the shared progress-recompute logic is broken everywhere it's called from, including the one call site whose entire job is to get this number right.
 
 ## Deferred Items
 
@@ -151,6 +154,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-06T08:14:46.913Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-09-06T12:39:52.863Z
+Stopped at: Phase 05 complete (UAT passed, security verified, nyquist-compliant), ready to plan Phase 6
 Resume file: None

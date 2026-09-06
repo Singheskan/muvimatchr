@@ -25,8 +25,8 @@ Two (or more) people with different tastes can independently pick movies they'd 
 
 ### Active
 
-- [ ] Participant who finishes early sees a live-updating "waiting on N people" screen (via WebSocket), not a static page they must refresh
-- [ ] When all participants finish, session transitions to a results view automatically for anyone watching the waiting screen, and shows results immediately to anyone who returns later
+- [ ] Participant who finishes early sees a live-updating "waiting on N people" screen (via WebSocket), not a static page they must refresh — backend push (finishedCount progression over STOMP) shipped Phase 5; needs the frontend screen (Phase 6)
+- [ ] When all participants finish, session transitions to a results view automatically for anyone watching the waiting screen, and shows results immediately to anyone who returns later — backend completion signal + reconnect-safe REST reconciliation shipped Phase 5; needs the frontend transition (Phase 6)
 - [ ] Results view shows the single best mutual match as the primary result — the backend now computes this (`matchedMovieIds`, live and race-free); remaining work is the frontend view itself
 
 ### Out of Scope
@@ -56,7 +56,11 @@ Two (or more) people with different tastes can independently pick movies they'd 
 | Rebuild rather than patch existing code | Vote aggregation was never finished and state model is in-memory-only; core data model needs to change anyway | Confirmed — Phase 1 (persistence) and Phase 2 (session/lobby) built clean, tested from scratch |
 | Keep Kotlin/Spring Boot, add SPA frontend | User knows the backend stack; wants a real frontend instead of Thymeleaf for a better swipe UX | — Pending (frontend is Phase 6) |
 | TMDB for movie data | Real titles/posters/genres/streaming availability instead of a placeholder list | Shipped — Phase 3 (`MovieCatalogClient`/`MovieCatalogService`), verified against the live TMDB API, not just mocked tests |
-| Async voting with live waiting screen | Matches actual usage pattern (people swipe on their own time), while still feeling live when others are online | Vote recording/aggregation shipped — Phase 4; live waiting screen — Pending (Phase 5) |
+| Async voting with live waiting screen | Matches actual usage pattern (people swipe on their own time), while still feeling live when others are online | Vote recording/aggregation shipped — Phase 4; live waiting screen backend (STOMP push, finishedCount progression, fan-out completion signal, reconnect-safe REST reconciliation) shipped — Phase 5; frontend rendering — Pending (Phase 6) |
+| Session-scoped STOMP endpoint (`/ws`, broker prefix `/topic`) replacing the prototype's `/lobby` socket; no SockJS fallback, no widened handshake origin | Minimal transport surface — the app only ever needs one plain WebSocket endpoint; SockJS fallback and origin widening are unneeded attack surface for a same-origin SPA | Shipped — Phase 5 (`WebSocketConfig`), asserted by negative source checks and live-confirmed against a real running instance |
+| After-commit broadcast via `TransactionSynchronizationManager`, never inline in the vote-write transaction; broadcast failures are swallowed and logged | A delivery problem in the notification layer must never roll back or fail a recorded vote, and a subscriber's immediate REST reconcile can never read older state than the push it just received | Shipped — Phase 5 (`SessionEventPublisher.broadcastStatus`, `VoteService.recordVote`) |
+| No last-known-status cache or per-client delivery ledger anywhere in the notification layer — REST is the sole source of truth on reconnect | A reconnecting client must never be able to land on stale or replayed state; the server holding delivery state was the exact class of bug this phase was designed to avoid inheriting from real-time systems generally | Shipped — Phase 5, live-confirmed: a client disconnected across a session's completion received 0 frames on reconnect, and REST returned the correct current state |
+| Unauthenticated STOMP subscription to `/topic/session/{sessionId}`, accepted as a documented risk (session UUID entropy is the control) | Full CONNECT/SUBSCRIBE token validation was out of scope for Phase 5; the topic carries only session-level aggregate data, never participant identity or per-participant choices | Accepted — Phase 5 (05-SECURITY.md AR-05-01), consistent with the app's existing no-accounts design; revisit alongside other pre-public-deploy hardening items |
 | Server-side TTL cache for TMDB responses, keyed by filter combination | Bounds outbound TMDB call volume regardless of caller volume; TMDB rate limits are per-app, not per-user | Shipped — Phase 3 (`deck_cache_entry`, 6h TTL deck / 168h TTL reference data), proven via request-count-delta tests |
 | Retry-then-stale-then-503 degradation ladder for TMDB outages | A transient TMDB outage shouldn't turn into a hard failure if a usable (if slightly stale) cached deck already exists | Shipped — Phase 3 (`MovieCatalogService.getDeck`), live-verified against a genuine connection-refused failure (retry engaged, correct stale-serve and 503-no-cache outcomes) |
 | Merge flatrate/rent/buy/ads into one "where to watch" list, no monetization-type filter sent to TMDB | App doesn't distinguish subscription from rental anywhere in the UI; sending the scoping param would silently narrow results to TMDB's undocumented flatrate-only default | Confirmed — Phase 3, live-verified against TMDB that omitting the param returns the broadest match |
@@ -87,4 +91,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-06 after Phase 4*
+*Last updated: 2026-09-06 after Phase 5*
