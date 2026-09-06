@@ -10,7 +10,7 @@ the human-readable history across the whole project.
 ## Board
 
 ### In Progress
-- Phase 5 (Real-Time Notification Layer) — context gathered, ready to plan.
+- Phase 5 (Real-Time Notification Layer) — planned (2 plans, 2 waves), verification passed, ready to execute.
 
 ### Done
 - Phase 4 (Vote Recording & Match Aggregation) — executed, code-reviewed, verified, closed (2026-09-06; see Issues Log).
@@ -529,6 +529,39 @@ this one proves `state.record-session` itself is the actual culprit, independent
 phase completion. Manually corrected back to 4/67% and committed (`d0a9aa6`). Four
 occurrences now — worth filing as a real `gsd-core` defect rather than continuing to
 hand-patch every session.
+
+### 2026-09-06 — Phase 5 planned (skipped research; pattern-mapped; plan-checker passed clean)
+
+Ran `/gsd-plan-phase 5`. User chose to skip phase research (CONTEXT.md already embedded
+the relevant `ARCHITECTURE.md`/`STACK.md`/`PITFALLS.md` citations directly — nothing left
+to investigate for a well-documented Spring STOMP integration over an already-built
+`VoteService`). No phase SPEC.md exists, so the deterministic edge-probe fallback ran
+against RTIME-01/02/03 directly; all three came back `unclassified/unresolved` (a
+genuine non-classification, not zero-edges) and were carried into both plans as explicit
+`<assumptions>`, not silently dropped or fabricated as resolved. Pattern-mapper ran
+first and produced `05-PATTERNS.md`.
+
+Planner produced 2 plans across 2 waves (05-01 tracer: swap prototype `/lobby` WS for
+session-scoped STOMP + prove one broadcast end-to-end; 05-02, blocked on 05-01: N-of-M
+progression/fan-out + reconnect reconciliation). Three findings changed the plan
+materially: (1) deleting the legacy `WebSocketController.kt` (D-03) would have broken
+compilation — `LobbyController.kt` references its `LobbyEvent` and injects the
+`SimpMessagingTemplate` bean the old `@EnableWebSocketMessageBroker` provides, so the
+delete-and-rebuild had to be one atomic task, not two; (2) broadcasting the raw
+`SessionVoteStatus` would have silently violated RTIME-03 — `VoteController` renames the
+wire field to `isComplete` via `@JsonProperty`, so `toResponse()` was promoted to a
+shared extension so REST and WS serialize identically; (3) the planner registered the
+broadcast as an `afterCommit` transaction hook (not inline, which risked publishing
+pre-commit state or rolling back a vote on a broker throw) and added a `ChannelInterceptor`
+to block forged client `SEND` frames on the topic — a new HIGH-severity threat the
+open `SimpleBroker` introduced that CONTEXT.md's D-01 didn't cover (D-01 only defers
+*token* validation, not this).
+
+Plan-checker (haiku) passed clean on the first pass — 0 blockers, 0 warnings on both the
+verify-command-path and failing-direction deterministic probes; all 5 CONTEXT.md
+decisions and all 3 RTIME requirements confirmed visible in plan tasks/must_haves.
+Requirements + decision coverage gates and the post-planning gap-analysis gate all
+passed 8/8. Committed as `4952d64` (plans) and `14f5baa` (STATE.md/PATTERNS.md).
 
 ## Format for future entries
 
