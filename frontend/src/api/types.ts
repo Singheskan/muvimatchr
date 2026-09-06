@@ -64,3 +64,8 @@ export interface VoteStatusResponse {
 }
 
 export type VoteChoice = 'LIKE' | 'PASS'
+
+export interface VoteRequest {
+  movieId: number
+  choice: VoteChoice
+}
