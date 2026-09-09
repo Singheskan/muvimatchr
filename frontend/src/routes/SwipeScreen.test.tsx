@@ -94,6 +94,17 @@ describe('SwipeScreen', () => {
       if (url.endsWith('/deck')) {
         return jsonResponse(options.deck ?? deckResponse())
       }
+      if (url.endsWith('/votes/status')) {
+        return jsonResponse({
+          sessionId: SESSION_ID,
+          deckSize: 4,
+          activeCount: 1,
+          finishedCount: 0,
+          isComplete: false,
+          matchedMovieIds: [],
+          likeCounts: [],
+        })
+      }
       if (url.endsWith('/votes') && method === 'POST') {
         if (options.voteResult && options.voteResult !== 'ok') {
           return new Response(options.voteResult.body, { status: options.voteResult.status })

@@ -69,3 +69,19 @@ export interface VoteRequest {
   movieId: number
   choice: VoteChoice
 }
+
+// Pinned to these exact wire names by @get:JsonProperty("isFinished")/@get:JsonProperty("isActive")
+// on the Kotlin DTO -- do not rename to `finished`/`active`.
+export interface ParticipantProgressResponse {
+  participantId: string
+  displayName: string
+  votedCount: number
+  isFinished: boolean
+  isActive: boolean
+}
+
+export interface SessionRosterResponse {
+  sessionId: string
+  deckSize: number
+  participants: ParticipantProgressResponse[]
+}

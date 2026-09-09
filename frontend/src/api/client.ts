@@ -2,6 +2,7 @@ import type {
   DeckResponse,
   JoinResponse,
   SessionBootstrapResponse,
+  SessionRosterResponse,
   VoteChoice,
   VoteStatusResponse,
 } from './types'
@@ -83,4 +84,15 @@ export async function postVote(
     method: 'POST',
     body: { movieId, choice },
   })
+}
+
+// The route guard's REST source of truth (D-04) -- resolveScreen reads status.isComplete from
+// this response and nothing else.
+export async function fetchStatus(sessionId: string, token: string): Promise<VoteStatusResponse> {
+  return apiFetch<VoteStatusResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/votes/status`, { token })
+}
+
+// D-10's named waiting roster.
+export async function fetchRoster(sessionId: string, token: string): Promise<SessionRosterResponse> {
+  return apiFetch<SessionRosterResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/votes/roster`, { token })
 }

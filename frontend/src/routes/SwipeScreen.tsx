@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import * as client from '../api/client'
 import type { VoteChoice } from '../api/types'
+import { useRouteGuard } from '../routing/useRouteGuard'
 import { useBootstrap } from '../session/useBootstrap'
 import { useDeck } from '../session/useDeck'
+import { useSessionStatus } from '../session/useSessionStatus'
 import { useSessionToken } from '../session/useSessionToken'
 import { CardStack } from '../swipe/CardStack'
 import '../swipe/swipe.css'
@@ -18,16 +20,20 @@ export function SwipeScreen() {
 
   const bootstrap = useBootstrap(code, token)
   const deck = useDeck(bootstrap.data?.sessionId, token)
+  const status = useSessionStatus(bootstrap.data?.sessionId, token)
 
   const [cursor, setCursor] = useState(0)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!token && code) {
-      navigate(`/s/${code}`, { replace: true })
-    }
-  }, [token, code, navigate])
+  // D-04's shared guard replaces this screen's own bespoke no-token redirect: every session route
+  // resolves its screen from server-computed status through one pure, unit-tested function.
+  useRouteGuard(code, 'swipe', {
+    hasToken: Boolean(token),
+    status: status.data ?? null,
+    myVotedCount: bootstrap.data?.votedMovieIds.length ?? 0,
+    ready: !bootstrap.isLoading && !status.isLoading,
+  })
 
   // Reading the resume position from the server-issued votedMovieIds -- never from any local
   // record -- is what makes a reopened link resume rather than restart.
