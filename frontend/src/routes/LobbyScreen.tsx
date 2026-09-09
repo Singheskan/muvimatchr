@@ -1,11 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ApiError, fetchDeck } from '../api/client'
+import { ApiError, fetchDeck, updateSessionFilters } from '../api/client'
 import { SessionFiltersForm } from '../filters/SessionFiltersForm'
 import { useRouteGuard } from '../routing/useRouteGuard'
 import { useBootstrap } from '../session/useBootstrap'
 import { useRoster } from '../session/useRoster'
+import { useSessionFilters } from '../session/useSessionFilters'
 import { useSessionStatus } from '../session/useSessionStatus'
 import { useSessionToken } from '../session/useSessionToken'
 import './lobby.css'
@@ -13,6 +14,11 @@ import './lobby.css'
 // Joining doesn't broadcast anything over the socket (unlike votes/status) -- there is no
 // server-side event to hook, so the roster polls on a short interval only on this screen.
 const ROSTER_POLL_MS = 4000
+
+// Auto-saves shortly after the last edit so filters never depend on a separate, easy-to-forget
+// "Save" click -- found live: a provider toggled but not explicitly saved before "Start swiping"
+// silently pinned the deck with the *old* filters, so the selection had no effect at all.
+const FILTERS_AUTOSAVE_DEBOUNCE_MS = 500
 
 // D-04's own routing comment always called /s/:code the "(join/lobby)" route, but no code ever
 // actually kept a settled, bootstrapped participant there long enough to see it -- resolveScreen
@@ -41,16 +47,93 @@ export function LobbyScreen() {
     ready: !bootstrap.isLoading && !status.isLoading,
   })
 
+  // Filters live here, not inside SessionFiltersForm, specifically so "Start swiping" can flush
+  // the current values with one direct, awaited call instead of racing a debounce timer it has no
+  // way to reach into a child component and cancel/complete early.
+  const filters = useSessionFilters(sessionId, token)
+  const [region, setRegion] = useState('')
+  const [genre, setGenre] = useState<number | ''>('')
+  const [providerIds, setProviderIds] = useState<number[]>([])
+  const [filtersInitialized, setFiltersInitialized] = useState(false)
+  const [filtersSaving, setFiltersSaving] = useState(false)
+  const [filtersSaved, setFiltersSaved] = useState(false)
+  const [filtersError, setFiltersError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (filters.data && !filtersInitialized) {
+      setRegion(filters.data.region)
+      setGenre(filters.data.genre ?? '')
+      setProviderIds(filters.data.providerIds)
+      setFiltersInitialized(true)
+    }
+  }, [filters.data, filtersInitialized])
+
+  const saveFilters = useCallback(async () => {
+    if (!sessionId || !token) {
+      return
+    }
+    setFiltersSaving(true)
+    setFiltersSaved(false)
+    setFiltersError(null)
+    try {
+      await updateSessionFilters(sessionId, token, {
+        region,
+        genre: genre === '' ? null : genre,
+        providerIds,
+      })
+      setFiltersSaved(true)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setFiltersError('Filters are locked -- the deck has already been pinned.')
+      } else {
+        setFiltersError(err instanceof ApiError ? err.message : 'Could not save filters.')
+      }
+      throw err
+    } finally {
+      setFiltersSaving(false)
+    }
+  }, [sessionId, token, region, genre, providerIds])
+
+  // Auto-save shortly after the participant stops editing -- not on every keystroke/click.
+  useEffect(() => {
+    if (!filtersInitialized) {
+      return
+    }
+    const timeout = setTimeout(() => {
+      saveFilters().catch(() => {
+        // Surfaced via filtersError already; nothing further to do on an autosave failure.
+      })
+    }, FILTERS_AUTOSAVE_DEBOUNCE_MS)
+    return () => clearTimeout(timeout)
+    // Deliberately excludes saveFilters from deps: it's recreated every render (region/genre/
+    // providerIds change every edit), and including it would re-arm the same debounce redundantly
+    // on the exact renders this effect already re-runs for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region, genre, providerIds, filtersInitialized])
+
+  function toggleProvider(id: number) {
+    setProviderIds((current) => {
+      if (current.includes(id)) {
+        return current.filter((p) => p !== id)
+      }
+      return [...current, id]
+    })
+  }
+
   const [starting, setStarting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [startError, setStartError] = useState<string | null>(null)
 
   async function handleStartSwiping() {
     if (!sessionId || !token || !code) {
       return
     }
     setStarting(true)
-    setError(null)
+    setStartError(null)
     try {
+      // Flush whatever is currently selected, awaited, before pinning -- this is what actually
+      // fixes the bug: without it, a change made in the last FILTERS_AUTOSAVE_DEBOUNCE_MS could
+      // still be in flight (or not yet fired at all) when the deck gets pinned below.
+      await saveFilters()
       // The first successful call to this endpoint is what pins the deck server-side (Phase 4
       // D-01) -- idempotent if someone else already pinned it while this participant sat here.
       await fetchDeck(sessionId, token)
@@ -64,7 +147,11 @@ export function LobbyScreen() {
       ])
       navigate(`/s/${code}/swipe?token=${encodeURIComponent(token)}`, { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
+      // A failed saveFilters() already set filtersError with the specific reason -- this generic
+      // message only covers the fetchDeck/invalidate path.
+      if (!(err instanceof ApiError)) {
+        setStartError('Something went wrong. Please try again.')
+      }
       setStarting(false)
     }
   }
@@ -99,14 +186,27 @@ export function LobbyScreen() {
         )}
       </div>
 
-      <SessionFiltersForm sessionId={sessionId!} token={token} />
+      {filtersInitialized && (
+        <SessionFiltersForm
+          token={token}
+          region={region}
+          genre={genre}
+          providerIds={providerIds}
+          onRegionChange={setRegion}
+          onGenreChange={setGenre}
+          onToggleProvider={toggleProvider}
+          saving={filtersSaving}
+          saved={filtersSaved}
+          error={filtersError}
+        />
+      )}
 
       <div className="lobby-start">
         <button type="button" onClick={handleStartSwiping} disabled={starting} className="btn-primary">
           {starting ? 'Starting…' : 'Start swiping'}
         </button>
         <p className="lobby-start-note">Anyone can start. The whole group gets the same picks.</p>
-        {error && <p role="alert">{error}</p>}
+        {startError && <p role="alert">{startError}</p>}
       </div>
     </section>
   )

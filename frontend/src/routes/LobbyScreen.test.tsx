@@ -67,6 +67,9 @@ function renderLobby(
     if (url.endsWith('/filters') && method === 'GET') {
       return jsonResponse({ sessionId: SESSION_ID, region: 'DE', providerIds: [], genre: null })
     }
+    if (url.endsWith('/filters') && method === 'PUT') {
+      return jsonResponse({ sessionId: SESSION_ID, ...JSON.parse(init!.body as string) })
+    }
     if (url.endsWith('/votes/roster')) {
       return jsonResponse({
         sessionId: SESSION_ID,
@@ -80,7 +83,7 @@ function renderLobby(
       return jsonResponse([])
     }
     if (url.startsWith('/api/catalog/watch-providers')) {
-      return jsonResponse([])
+      return jsonResponse([{ id: 8, name: 'Netflix', logoPath: null, displayPriority: 1 }])
     }
     if (url.endsWith('/deck')) {
       deckPinnedAfterFetch = true
@@ -161,6 +164,47 @@ describe('LobbyScreen', () => {
     await waitFor(() => {
       expect(screen.getByText(`swipe screen (token=${TOKEN})`)).toBeInTheDocument()
     })
+  })
+
+  // Found live-testing: a provider toggled right before clicking "Start swiping" -- faster than
+  // the autosave debounce -- silently pinned the deck with the *old* (empty) filters. The
+  // selected provider never affected the fetched deck at all. This proves the fix: "Start
+  // swiping" must flush the current selection itself, not rely on the debounce having already
+  // fired.
+  it('saves a just-toggled provider before pinning the deck, even when clicked faster than the autosave debounce', async () => {
+    const mockFetchFn = renderLobby()
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/netflix/i)).toBeInTheDocument()
+    })
+
+    // Synchronous, back-to-back -- no time passes for the 500ms autosave debounce to fire before
+    // "Start swiping" is clicked.
+    fireEvent.click(screen.getByLabelText(/netflix/i))
+    fireEvent.click(screen.getByRole('button', { name: /start swiping/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(`swipe screen (token=${TOKEN})`)).toBeInTheDocument()
+    })
+
+    const putCall = mockFetchFn.mock.calls.find(
+      (call) => (call[0] as string).endsWith('/filters') && (call[1] as RequestInit)?.method === 'PUT',
+    )
+    expect(putCall).toBeDefined()
+    expect(JSON.parse((putCall![1] as RequestInit).body as string)).toEqual({
+      region: 'DE',
+      genre: null,
+      providerIds: [8],
+    })
+
+    // The filters PUT must land before the deck fetch, not race it -- a deck fetched with the
+    // still-empty filters would reproduce the exact bug this test guards against.
+    const putIndex = mockFetchFn.mock.calls.findIndex(
+      (call) => (call[0] as string).endsWith('/filters') && (call[1] as RequestInit)?.method === 'PUT',
+    )
+    const deckIndex = mockFetchFn.mock.calls.findIndex((call) => (call[0] as string).endsWith('/deck'))
+    expect(putIndex).toBeGreaterThanOrEqual(0)
+    expect(deckIndex).toBeGreaterThan(putIndex)
   })
 
   // Found live-testing: joining worked, but nothing showed who else had actually joined.
