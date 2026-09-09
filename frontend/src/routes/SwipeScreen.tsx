@@ -37,6 +37,18 @@ export function SwipeScreen() {
     [deck.data, votedSet],
   )
 
+  // D-08's exhaustion transition, as a single source of truth: this fires both when a reopened
+  // link's bootstrap already covers every movie in the deck (cursor 0, remaining already empty --
+  // nothing committed this session) and when a vote committed just now advances the cursor to the
+  // end of `remaining`. Without this on-mount case, reopening a fully-voted link would fall through
+  // to "otherwise render the deck" with an empty CardStack and no redirect -- a bare set of
+  // like/pass buttons over nothing to vote on.
+  useEffect(() => {
+    if (deck.data && deck.data.status === 'ok' && cursor >= remaining.length) {
+      navigate(`/s/${code}/wait`, { replace: true })
+    }
+  }, [deck.data, cursor, remaining, navigate, code])
+
   if (!token) {
     return null
   }
@@ -91,13 +103,11 @@ export function SwipeScreen() {
       await client.postVote(bootstrap.data.sessionId, token, currentMovie.tmdbId, choice)
       setError(null)
       setPending(false)
-      const nextCursor = cursor + 1
-      setCursor(nextCursor)
-      if (nextCursor >= remaining.length) {
-        // D-08: straight through to the waiting route, replace so the back button cannot return
-        // to an exhausted deck.
-        navigate(`/s/${code}/wait`, { replace: true })
-      }
+      // D-08: advancing the cursor to the end of `remaining` here re-renders with
+      // `cursor >= remaining.length`, which the exhaustion effect above picks up and turns into
+      // the replace-navigate to /wait -- one source of truth for "deck is done, go to wait" shared
+      // with the on-mount already-fully-voted case.
+      setCursor((current) => current + 1)
     } catch (err) {
       // P-03: never advance the cursor on a failed vote, and never retry automatically -- a
       // silently-dropped vote is worse than a visible error.

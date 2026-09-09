@@ -200,6 +200,15 @@ describe('SwipeScreen', () => {
     })
   })
 
+  it('redirects to the waiting route on mount when every movie is already voted', async () => {
+    mockFetch({ votedMovieIds: [10, 20, 30, 40] })
+    renderSwipeScreen(`/s/${JOIN_CODE}/swipe?token=${TOKEN}`)
+
+    await waitFor(() => {
+      expect(screen.getByText('waiting screen')).toBeInTheDocument()
+    })
+  })
+
   it('redirects to /s/{code} when no token is present in the URL', async () => {
     mockFetch({})
     renderSwipeScreen(`/s/${JOIN_CODE}/swipe`)
