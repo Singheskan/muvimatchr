@@ -4,6 +4,13 @@ A group movie-picking app: create a session, share a code or link, and everyone 
 
 No accounts, no signup. Join with a code and a display name, swipe on your own time, and get a live-updating result as soon as the group finishes.
 
+<p align="center">
+  <img src="docs/screenshots/01-create-session.png" width="200" alt="Create a session">
+  <img src="docs/screenshots/02-lobby.png" width="200" alt="Lobby with share link, roster, and filters">
+  <img src="docs/screenshots/03-swipe.png" width="200" alt="Swiping through the movie deck">
+  <img src="docs/screenshots/04-results.png" width="200" alt="Match result screen">
+</p>
+
 ## How it works
 
 1. **Host creates a session** and gets a shareable join code / link.
