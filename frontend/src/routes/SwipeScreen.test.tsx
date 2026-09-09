@@ -1,9 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DeckResponse } from '../api/types'
 import { SwipeScreen } from './SwipeScreen'
+
+// D-05: the token lives only in the URL query string -- this probe proves a navigation actually
+// carried it forward, not just that the pathname changed.
+function WaitScreenProbe() {
+  const [searchParams] = useSearchParams()
+  return <p>waiting screen (token={searchParams.get('token')})</p>
+}
 
 const SESSION_ID = 'session-1'
 const JOIN_CODE = 'ABC123'
@@ -57,7 +64,7 @@ function renderSwipeScreen(initialPath: string) {
         <Routes>
           <Route path="/s/:code" element={<p>join screen</p>} />
           <Route path="/s/:code/swipe" element={<SwipeScreen />} />
-          <Route path="/s/:code/wait" element={<p>waiting screen</p>} />
+          <Route path="/s/:code/wait" element={<WaitScreenProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -196,7 +203,7 @@ describe('SwipeScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /^like$/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('waiting screen')).toBeInTheDocument()
+      expect(screen.getByText(`waiting screen (token=${TOKEN})`)).toBeInTheDocument()
     })
   })
 
@@ -205,7 +212,7 @@ describe('SwipeScreen', () => {
     renderSwipeScreen(`/s/${JOIN_CODE}/swipe?token=${TOKEN}`)
 
     await waitFor(() => {
-      expect(screen.getByText('waiting screen')).toBeInTheDocument()
+      expect(screen.getByText(`waiting screen (token=${TOKEN})`)).toBeInTheDocument()
     })
   })
 

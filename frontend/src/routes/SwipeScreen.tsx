@@ -45,9 +45,12 @@ export function SwipeScreen() {
   // like/pass buttons over nothing to vote on.
   useEffect(() => {
     if (deck.data && deck.data.status === 'ok' && cursor >= remaining.length) {
-      navigate(`/s/${code}/wait`, { replace: true })
+      // D-05: the token lives only in the URL query string, never browser storage -- every
+      // internal navigation must carry it forward explicitly or the destination route sees an
+      // unauthenticated load and falls back to the join form.
+      navigate(`/s/${code}/wait?token=${encodeURIComponent(token ?? '')}`, { replace: true })
     }
-  }, [deck.data, cursor, remaining, navigate, code])
+  }, [deck.data, cursor, remaining, navigate, code, token])
 
   if (!token) {
     return null
