@@ -32,6 +32,7 @@ export function SwipeScreen() {
     hasToken: Boolean(token),
     status: status.data ?? null,
     myVotedCount: bootstrap.data?.votedMovieIds.length ?? 0,
+    deckPinned: bootstrap.data?.deckPinned ?? false,
     ready: !bootstrap.isLoading && !status.isLoading,
   })
 

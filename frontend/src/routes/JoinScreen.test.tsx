@@ -52,6 +52,10 @@ function SwipeProbe() {
   const [searchParams] = useSearchParams()
   return <p>swipe screen (token={searchParams.get('token')})</p>
 }
+function LobbyProbe() {
+  const [searchParams] = useSearchParams()
+  return <p>lobby screen (token={searchParams.get('token')})</p>
+}
 
 function renderAt(path: string) {
   const queryClient = new QueryClient()
@@ -60,6 +64,7 @@ function renderAt(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/s/:code" element={<JoinScreen />} />
+          <Route path="/s/:code/lobby" element={<LobbyProbe />} />
           <Route path="/s/:code/swipe" element={<SwipeProbe />} />
           <Route path="/s/:code/wait" element={<WaitProbe />} />
           <Route path="/s/:code/results" element={<ResultsProbe />} />
@@ -129,37 +134,16 @@ describe('JoinScreen', () => {
     })
   })
 
-  it('renders the server-returned display name when a token is present', async () => {
-    mockFetch({ bootstrap: bootstrapResponse({ deckPinned: false }) })
+  // D-04's routing comment always called /s/:code the "(join/lobby)" route, but a settled,
+  // bootstrapped participant never actually stays here -- resolveScreen now sends a not-yet-
+  // pinned session on to /lobby (LobbyScreen.tsx owns the share link and filters that used to
+  // live, unreachably, in this component).
+  it('redirects to /s/{code}/lobby with the token preserved when the deck is not yet pinned', async () => {
+    mockFetch({ bootstrap: bootstrapResponse({ deckPinned: false }), status: statusResponse({ deckSize: 0 }) })
     renderAt(`/s/${JOIN_CODE}?token=${TOKEN}`)
 
     await waitFor(() => {
-      expect(screen.getByText(/welcome back, alice/i)).toBeInTheDocument()
-    })
-  })
-
-  // SESH-01 requires a shareable join link, not just a code shown as plain text -- and the
-  // shared link must never carry the viewer's own bearer token (D-05/T-06-11: a second person
-  // opening it must land on the join form, not silently authenticated as the first participant).
-  it('shows a copyable, tokenless share link built from the join code', async () => {
-    mockFetch({ bootstrap: bootstrapResponse({ deckPinned: false }) })
-    renderAt(`/s/${JOIN_CODE}?token=${TOKEN}`)
-
-    await waitFor(() => {
-      expect(screen.getByText(/welcome back, alice/i)).toBeInTheDocument()
-    })
-
-    const shareInput = screen.getByLabelText(/share this link/i) as HTMLInputElement
-    expect(shareInput.value).toBe(`http://localhost:3000/s/${JOIN_CODE}`)
-    expect(shareInput.value).not.toContain('token=')
-
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-
-    fireEvent.click(screen.getByRole('button', { name: /copy link/i }))
-
-    await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(`http://localhost:3000/s/${JOIN_CODE}`)
+      expect(screen.getByText(`lobby screen (token=${TOKEN})`)).toBeInTheDocument()
     })
   })
 

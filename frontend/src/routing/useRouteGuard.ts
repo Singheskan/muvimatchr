@@ -12,6 +12,7 @@ export function useRouteGuard(
     hasToken: boolean
     status: VoteStatusResponse | null
     myVotedCount: number
+    deckPinned: boolean
     ready: boolean
   },
 ) {
