@@ -1,0 +1,54 @@
+.wait-roster {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wait-roster li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.wait-marker {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+}
+
+.wait-marker-done {
+  background: #1f8a4c;
+  color: white;
+}
+
+.wait-marker-waiting {
+  background: #7a7a7a;
+  color: white;
+}
+
+.wait-marker-away {
+  background: #b5892c;
+  color: white;
+}
+
+.wait-away-note {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.wait-reconnecting {
+  margin-top: 1rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.5rem;
+  background: #7a3b1e;
+  color: white;
+  font-weight: 600;
+}
