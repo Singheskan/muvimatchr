@@ -1017,6 +1017,61 @@ Full plan SUMMARY: `.planning/phases/06-frontend-spa/06-04-SUMMARY.md`.
 Next: 06-05 (results view — closes RSLT-01/RSLT-02), non-autonomous. Before or alongside it,
 consider a clean retest of 06-04's reconnect items 4-6 with a real network toggle.
 
+### 2026-09-09 — Plan 06-05 closed (results view) — Phase 6 and ROADMAP.md execution complete
+
+Dispatched a gsd-executor agent in an isolated worktree for Tasks 1-2 (deterministic
+`pickBestMatch` selection + `ResultsScreen`, and cold-opened resume-link forwarding). The
+first attempt halted cleanly with **zero changes**: its worktree had forked from `origin/main`
+at the Phase 3 milestone commit (91 commits stale — `origin` hadn't been pushed to since),
+so `.planning/phases/06-frontend-spa/` and `frontend/` didn't exist in that checkout at all.
+The agent correctly diagnosed this via `git merge-base`/`git rev-list`, confirmed its own
+branch had zero unique commits (safe to discard), and explicitly deferred the git-topology
+fix to the orchestrator rather than improvising — exactly the restraint the role calls for.
+Fixed by pushing local `main` to `origin` (91 commits, plain fast-forward, no force) and
+re-dispatching; the second attempt forked cleanly and completed both tasks without incident
+(`ed240a6`/`2922ef0`, `0b17212`/`9f8889d`). 66/66 frontend tests, full `./gradlew build` green.
+
+Task 3's full 7-item checkpoint — whole-journey SPA check, a real match, a real zero-match, a
+real tie, cold-open resume, a tokenless visitor, and prototype-removal confirmation — passed
+live in **one pass, zero fixes required**, the first Phase 6 checkpoint this session that
+didn't need a code change. Items 1 and 7 (SPA-only journey, Thymeleaf gone, `/ws` live) were
+verified programmatically before handing off, so the developer's time went only to the four
+items that genuinely need human judgment or live two-participant interaction. Three purpose-
+built fixture sessions were seeded directly via SQL vote inserts (match / zero-match / a
+genuine tie) rather than full swipe walkthroughs, since those three items test only the
+results view's own selection logic — already unit-tested — not the swipe interaction 06-03
+already proved live.
+
+Two notable live confirmations, both correct-by-design rather than bugs:
+- A genuine tie (both movies liked by both participants, equal like counts) deterministically
+  resolved to the higher-`voteAverage` film, exactly matching `pickBestMatch`'s documented
+  ordering (likeCount desc, voteAverage desc, tmdbId asc).
+- A third participant joining an already-complete, already-matched session correctly reopened
+  voting: becoming part of the active roster, and since they didn't unanimously like the same
+  film, the match recomputed and flipped to no-match. This is A-01's intended behavior (the
+  match is live off the current active set, never frozen at first completion), not a defect.
+
+Test fixture cleanup: all three sessions' vote/participant/session rows deleted after
+verification; nothing left in the dev database. Dev server stopped.
+
+`06-05-SUMMARY.md` written. REQUIREMENTS.md: RSLT-01 and RSLT-02 both marked `Complete`.
+ROADMAP.md: all five Phase 6 plan checkboxes now checked, Phase 6 row marked Complete
+(2026-09-09). STATE.md: `completed_plans` 21/21 (100%), status moved to `verifying` — Phase 6
+is the last phase in ROADMAP.md, so the project's plan-execution work is now fully done.
+
+**Carried-forward gap:** 06-04's checkpoint items 4-6 (reconnect indicator, reconnect-reconcile,
+no duplicate frames) are still **not verified** — the Chrome DevTools Offline throttle used to
+test them turned out to block the STOMP client's own reconnect attempts, making the test
+inconclusive rather than a confirmed pass or fail. Worth a dedicated retest with a real network
+toggle (or DevTools' "Close connection" on the `/ws` row) before treating RTIME-03 as fully
+proven end-to-end.
+
+Full plan SUMMARY: `.planning/phases/06-frontend-spa/06-05-SUMMARY.md`.
+
+Next: formal phase verification for Phase 6 (STATE.md status is `verifying`), then likely
+milestone completion review — `/gsd-complete-milestone` or equivalent, developer's call. The
+06-04 reconnect retest should happen before or as part of that.
+
 ## Format for future entries
 
 ```

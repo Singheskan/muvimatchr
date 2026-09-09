@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 current_phase: 06
 current_phase_name: Frontend SPA
-status: executing
-stopped_at: Completed 06-04-PLAN.md (checkpoint items 1-3 pass, 4-6 not verified)
-last_updated: "2026-09-09T08:05:00.000Z"
+status: verifying
+stopped_at: Completed 06-05-PLAN.md (all 5 plans of Phase 06 done, last phase in ROADMAP.md)
+last_updated: "2026-09-09T08:25:00.000Z"
 last_activity: 2026-09-09
-last_activity_desc: Phase 06 Plan 4 (routing guard + waiting screen) closed with an open reconnect-verification gap
-state_head: b79aa65
+last_activity_desc: Phase 06 Plan 5 (results view) closed, all 7 checkpoint items passed live -- Phase 6 execution complete, awaiting phase verification
+state_head: 9f8889d
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 21
-  completed_plans: 20
-  percent: 95
+  completed_plans: 21
+  percent: 100
 ---
 
 # Project State
@@ -27,12 +27,19 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 
 ## Current Position
 
-Phase: 06 (Frontend SPA) — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute
-Last activity: 2026-09-09 — Phase 06 Plan 4 (server-authoritative routing + waiting screen) closed; checkpoint items 1-3 pass, items 4-6 (reconnect indicator/reconcile/no-duplicate-frames) not verified this session, open gap
+Phase: 06 (Frontend SPA) — ALL PLANS COMPLETE, AWAITING VERIFICATION
+Plan: 5 of 5 (done)
+Status: All 5 plans executed and checkpointed; this is the last phase in ROADMAP.md
+Last activity: 2026-09-09 — Phase 06 Plan 5 (results view) closed. All 7 Task 3 checkpoint items
+passed live in one pass (whole-journey SPA, match, zero-match, tie case, cold-open resume,
+tokenless visitor, prototype-removal). RSLT-01/RSLT-02 marked Complete in REQUIREMENTS.md.
 
-Progress: [█████████░] 95% (Phase 05 of 6 complete, Plan 4/5 of Phase 06 complete)
+Progress: [██████████] 100% (6/6 phases' plans executed: 21/21 plans complete)
+
+Note: 06-04's checkpoint items 4-6 (reconnect indicator/reconcile/no-duplicate-frames) remain
+**not verified** (compromised test methodology, not a confirmed defect) -- worth a clean retest
+with a real network toggle before treating the milestone as fully proven end-to-end. See
+06-04-SUMMARY.md and the Blockers/Concerns log below.
 
 ## Phase 1 Verification Summary
 
@@ -128,6 +135,8 @@ Recent decisions affecting current work:
 - [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer verified the browser join flow end-to-end (localhost:8080/s/MH1ZWF -> join -> authenticated read-back) and approved the tracer feedback gate.
 - [Phase 06]: Phase 6 Plan 2: MatchAggregationService.computeRoster reuses findActiveParticipantIds (called exactly twice, no restated inactivity SQL) and the same pinned-snapshot deckSize guard computeStatus uses -- enforced by grep gates, not just convention. — The roster's active/finished markers must never be able to disagree with computeStatus's completion arithmetic (04-CONTEXT.md D-05/D-06/D-07).
 - [Phase 06]: Phase 6 Plan 2: GET /api/sessions/{sessionId}/votes/roster is a new additive endpoint, not a widened VoteStatusResponse -- keeps the Phase 4/5 REST/WebSocket parity contract untouched (P-02: no session-level completion flag on the roster shape). — Widening VoteStatusResponse would have broken the byte-identical REST/WebSocket parity two existing Phase 5 tests assert.
+- [Phase 06]: Phase 6 Plan 5's Task 3 checkpoint (whole-journey SPA, match, zero-match, tie, cold-open resume, tokenless visitor, prototype removal) passed all 7 items live in one pass, no fixes required. A live tie between two equally-liked films deterministically resolved via pickBestMatch's voteAverage tiebreak; a new participant joining an already-complete session correctly reopened voting and flipped a prior match to no-match once the aggregate recomputed across the new active roster (A-01's intended behavior, not a bug). — Phase 6, and the entire ROADMAP.md, is now execution-complete: 21/21 plans done, RSLT-01/RSLT-02 marked Complete.
+- [Phase 06]: A worktree-isolated executor agent halted cleanly with zero changes when its worktree forked from a stale `origin/main` (91 commits behind, unpushed since the Phase 3 milestone) rather than guessing at a git-topology fix -- correctly deferred the repair (push + re-dispatch) to the orchestrator. — Push `origin/main` after every phase/plan's merge to keep this from recurring; already a logged habit, now with a concrete recent occurrence and fix.
 - [Phase 06]: Phase 6 Plan 4's Task 3 checkpoint (live two-client progression + kill-the-network reconnect walkthrough) closed with a genuine gap: items 1-3 (live progression, named roster, RTIME-02 auto-transition) passed live across three seeded two-participant sessions, but items 4-6 (reconnect indicator, reconnect-reconcile, no duplicate frames) were not verified. Chrome DevTools' Offline throttle turned out to be unsuitable for this test -- it neither reliably closes an already-open WebSocket nor lets the STOMP client's own reconnect loop run while checked -- and the developer chose to stop rather than retry with a real WiFi toggle. — Any future reconnect-behavior verification for this app must use a real OS-level network toggle or DevTools' "Close connection" on the specific WS row, never the Offline throttle checkbox alone. Revisit before treating RTIME-03 as genuinely proven.
 - [Phase 06]: Live multi-participant checkpoints are vulnerable to `voting.inactivity-timeout-seconds`' default 60s window: `VoteRepository.findActiveParticipantIds` counts a never-voted participant as active only within 60s of their own `created_at`. A normal conversational testing pace (seed fixtures, relay instructions, wait for the developer to act) routinely exceeds this, silently excluding the slower participant from the completion count and producing a confusing "session already complete" result mid-test. — Seed future multi-participant live-checkpoint fixtures with participant `created_at` set right when testing actually begins, or restart the dev server with `--voting.inactivity-timeout-seconds=<large number>` (a runtime arg, never a committed config change) before starting.
 - [Phase 06]: Phase 6 Plan 3's Task 3 human-verify checkpoint (run live 2026-09-09 against a seeded session, TMDB unavailable so the deck was inserted directly into session.pinned_deck) found a real bug, not just feel adjustments: the D-08 exhaustion navigate() to /wait dropped the ?token= query param, so the destination route saw no token and fell back to the join form. — Since the token lives only in the URL (D-05), *every* internal navigate() to another token-gated route must forward it explicitly; this is now a standing pattern to check on any new client-side navigation. Fixed in a61f820, both exhaustion tests strengthened to assert the token itself round-trips via a probe route component, not just that the destination text appeared. Two feel adjustments (button hover, card-stack slot transition) were also implemented from the same checkpoint.

@@ -39,8 +39,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Results & Reliability
 
-- [ ] **RSLT-01**: Anyone opening the link after everyone's done sees results immediately, even if they weren't connected when voting finished
-- [ ] **RSLT-02**: Results screen shows the single best mutual match (poster, title, where to watch)
+- [x] **RSLT-01**: Anyone opening the link after everyone's done sees results immediately, even if they weren't connected when voting finished
+- [x] **RSLT-02**: Results screen shows the single best mutual match (poster, title, where to watch)
 - [x] **RSLT-03**: Vote data is stored per-movie (counts, not just a boolean) so a ranked list can be added later without a data model change
 - [ ] **RELI-01**: Session/participant/vote data lives in a real database and survives a server restart
 
@@ -97,8 +97,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RTIME-01 | Phase 5 | Complete |
 | RTIME-02 | Phase 5 | Complete |
 | RTIME-03 | Phase 5 | Complete |
-| RSLT-01 | Phase 6 | Pending |
-| RSLT-02 | Phase 6 | Pending |
+| RSLT-01 | Phase 6 | Complete |
+| RSLT-02 | Phase 6 | Complete |
 | RSLT-03 | Phase 4 | Complete |
 | RELI-01 | Phase 1 | Pending |
 
