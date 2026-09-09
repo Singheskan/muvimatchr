@@ -152,4 +152,21 @@ describe('ResultsScreen', () => {
       expect(screen.getByText(/no streaming availability is listed/i)).toBeInTheDocument()
     })
   })
+
+  it('RSLT-01: mounting directly at the results route with a token and a complete status renders the match with no user interaction between mount and render', async () => {
+    mockFetch({
+      deck: deckResponse([
+        movie({ tmdbId: 10, title: 'The Match', posterPath: '/poster.jpg' }),
+        movie({ tmdbId: 20 }),
+      ]),
+    })
+    renderResultsScreen(`/s/${JOIN_CODE}/results?token=${TOKEN}`)
+
+    // No fireEvent/userEvent call occurs anywhere in this test -- the match must render from the
+    // cold mount alone, proving a never-connected-during-voting participant needs no manual
+    // refresh or interaction to reach it.
+    await waitFor(() => {
+      expect(screen.getByText('The Match')).toBeInTheDocument()
+    })
+  })
 })
