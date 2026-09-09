@@ -60,7 +60,7 @@ npm run dev
 
 Actively developed. Core flow — sessions, join, filtered swiping, persistent async voting, correct match aggregation — is built and tested end-to-end. The real-time waiting-room and results screens are the current focus.
 
-Out of scope for v1: real accounts/auth, a ranked list of runner-up matches, and any ML-based recommendation — see `.planning/PROJECT.md` for the full requirements and decision log.
+Out of scope for v1: real accounts/auth, a ranked list of runner-up matches, and any ML-based recommendation.
 
 ## License
 

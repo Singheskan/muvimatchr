@@ -24,7 +24,7 @@ services:
       - homepage.group=Self-Hosted Projects
       - homepage.name=MuviMatchr
       - homepage.icon=mdi-movie-open-outline
-      - homepage.href=http://raspberrypi.local:8090
+      - homepage.href=http://<host-ip>:8090
       - homepage.description=Pick a movie together
     env_file:
       - .env.local

@@ -13,8 +13,8 @@ import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
 
-// Attempt count and delays are tunable per CONTEXT.md's Claude's-Discretion list — declared as
-// named constants here rather than inline magic numbers.
+// Attempt count and delays are intentionally tunable — declared as named constants here
+// rather than inline magic numbers.
 private const val RETRY_MAX_ATTEMPTS = 3L
 private val RETRY_MIN_BACKOFF: Duration = Duration.ofMillis(500)
 private val RETRY_MAX_BACKOFF: Duration = Duration.ofSeconds(5)

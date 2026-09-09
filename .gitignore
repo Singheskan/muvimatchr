@@ -42,10 +42,10 @@ out/
 ### macOS ###
 .DS_Store
 
-### Claude / GSD local session state ###
-.claude/worktrees/
-.planning/milestone.lock
-.planning/research/.cache/
+### Local dev tooling / planning state ###
+.claude/
+.planning/
+.gsd/
 
 ### Frontend SPA (D-01) ###
 frontend/node_modules/
