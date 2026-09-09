@@ -965,6 +965,58 @@ Full plan SUMMARY: `.planning/phases/06-frontend-spa/06-03-SUMMARY.md`.
 Next: 06-04 (waiting screen — replaces the `/wait` placeholder this plan's checkpoint
 exposed) and 06-05 (results view), both non-autonomous.
 
+### 2026-09-09 — Plan 06-04 closed (routing guard + waiting screen, partial checkpoint)
+
+Dispatched a gsd-executor agent in an isolated worktree for Tasks 1-2 (server-authoritative
+route guard via `resolveScreen`/`useRouteGuard`, and the STOMP-backed `WaitScreen` with the
+named roster). The agent's worktree branch had forked from `main` before 06-03 existed; it
+correctly detected this, fast-forward-merged current `main` into itself first (verified as a
+strict ancestor, non-destructive), then executed both tasks as normal RED/GREEN TDD pairs
+(`9a85f73`/`63fe16d`, `0c9d916`/`b79aa65`). 50/50 frontend tests and a full `./gradlew build`
+green. The orchestrator fast-forward-merged the branch back onto `main` and removed the
+worktree.
+
+The agent explicitly reviewed 06-03's token-propagation lesson before writing any new
+`navigate()` calls and confirmed `useRouteGuard` forwards `location.search` on every redirect —
+no repeat of that bug class.
+
+Task 3's live checkpoint (two-client progression + kill-the-network reconnect walkthrough) only
+closed partially. Items 1-3 (live progression, named roster, RTIME-02 auto-transition) passed
+across three separate seeded two-participant sessions. Getting there took three false starts,
+all environmental rather than code bugs:
+
+- Twice mistook a correctly-functioning `/results` or bare `/s/{code}` placeholder screen
+  ("Welcome back...") for a bug, before confirming the browser was actually on an unintended
+  URL or a stale tab from an earlier session in the same checkpoint — not a routing defect.
+- Discovered `VoteRepository.findActiveParticipantIds` counts a never-voted participant as
+  active only within `voting.inactivity-timeout-seconds` (default 60s) of their own
+  `created_at`. The normal pace of relaying instructions and waiting for the developer to act
+  blew past that window twice, silently excluding the slower participant and marking sessions
+  "complete" mid-test in a confusing way. Restarted the dev server once with
+  `--voting.inactivity-timeout-seconds=3600` (runtime arg only, not committed) to remove time
+  pressure for the rest of the walkthrough.
+
+Items 4-6 (reconnect indicator, reconnect-reconcile, no duplicate frames) were **not verified**.
+Chrome DevTools' Offline throttle turned out to be the wrong tool for this test: it doesn't
+reliably close an already-open WebSocket, and it also blocks the STOMP client's own
+`reconnectDelay`-driven reconnect attempts while checked — so neither "does the app detect a
+drop" nor "does the app recover" could actually be exercised. Recommended a real WiFi toggle or
+DevTools' "Close connection" on the `/ws` row instead; the developer chose to stop here rather
+than retry ("skip this, not relevant"). Logged as an open, undismissed gap in
+`06-04-SUMMARY.md` rather than fabricated as a pass — worth a dedicated retest with proper
+tooling before treating RTIME-03 as genuinely proven.
+
+Test fixture cleanup: all four seeded sessions' participant/vote/session rows deleted after
+verification; nothing left in the dev database. Dev server stopped.
+
+`06-04-SUMMARY.md` written with the partial checkpoint result. STATE.md progress corrected by
+hand (19→20 completed plans, 90%→95%).
+
+Full plan SUMMARY: `.planning/phases/06-frontend-spa/06-04-SUMMARY.md`.
+
+Next: 06-05 (results view — closes RSLT-01/RSLT-02), non-autonomous. Before or alongside it,
+consider a clean retest of 06-04's reconnect items 4-6 with a real network toggle.
+
 ## Format for future entries
 
 ```
