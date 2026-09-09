@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 current_phase: 06
 current_phase_name: Frontend SPA
 status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-09-06T18:52:42.386Z"
-last_activity: 2026-09-06
-last_activity_desc: Phase 06 execution started
-state_head: 134d6d6c62fc70384ea867bf74e6be0688401bca
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-09-09T07:20:00.000Z"
+last_activity: 2026-09-09
+last_activity_desc: Phase 06 Plan 3 (swipe deck) checkpoint closed, token-propagation bug fixed
+state_head: a61f820
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 21
-  completed_plans: 18
-  percent: 86
+  completed_plans: 19
+  percent: 90
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-09-06)
 ## Current Position
 
 Phase: 06 (Frontend SPA) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
-Last activity: 2026-09-06 — Phase 06 Plan 2 (session roster read model & endpoint) complete
+Last activity: 2026-09-09 — Phase 06 Plan 3 (swipe deck) complete, including the Task 3 human-verify checkpoint
 
-Progress: [████████░░] 86% (Phase 05 of 6 complete, Plan 2/5 of Phase 06 complete)
+Progress: [█████████░] 90% (Phase 05 of 6 complete, Plan 3/5 of Phase 06 complete)
 
 ## Phase 1 Verification Summary
 
@@ -128,6 +128,7 @@ Recent decisions affecting current work:
 - [Phase 06]: [Phase 06] Phase 6 Plan 1: Developer verified the browser join flow end-to-end (localhost:8080/s/MH1ZWF -> join -> authenticated read-back) and approved the tracer feedback gate.
 - [Phase 06]: Phase 6 Plan 2: MatchAggregationService.computeRoster reuses findActiveParticipantIds (called exactly twice, no restated inactivity SQL) and the same pinned-snapshot deckSize guard computeStatus uses -- enforced by grep gates, not just convention. — The roster's active/finished markers must never be able to disagree with computeStatus's completion arithmetic (04-CONTEXT.md D-05/D-06/D-07).
 - [Phase 06]: Phase 6 Plan 2: GET /api/sessions/{sessionId}/votes/roster is a new additive endpoint, not a widened VoteStatusResponse -- keeps the Phase 4/5 REST/WebSocket parity contract untouched (P-02: no session-level completion flag on the roster shape). — Widening VoteStatusResponse would have broken the byte-identical REST/WebSocket parity two existing Phase 5 tests assert.
+- [Phase 06]: Phase 6 Plan 3's Task 3 human-verify checkpoint (run live 2026-09-09 against a seeded session, TMDB unavailable so the deck was inserted directly into session.pinned_deck) found a real bug, not just feel adjustments: the D-08 exhaustion navigate() to /wait dropped the ?token= query param, so the destination route saw no token and fell back to the join form. — Since the token lives only in the URL (D-05), *every* internal navigate() to another token-gated route must forward it explicitly; this is now a standing pattern to check on any new client-side navigation. Fixed in a61f820, both exhaustion tests strengthened to assert the token itself round-trips via a probe route component, not just that the destination text appeared. Two feel adjustments (button hover, card-stack slot transition) were also implemented from the same checkpoint.
 
 ### Pending Todos
 

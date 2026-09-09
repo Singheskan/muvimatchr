@@ -915,6 +915,56 @@ Full plan SUMMARY: `.planning/phases/06-frontend-spa/06-02-SUMMARY.md`.
 Next: 06-03 (swipe deck) and 06-04 (waiting screen), both non-autonomous (contain
 checkpoints), then 06-05 (results view).
 
+### 2026-09-09 — Plan 06-03 closed out (swipe deck, checkpoint + fixes)
+
+Picked up mid-session: Tasks 1-2 (swipe decision rule, card stack, screen wiring) had
+already been executed and committed in a prior session (`67ad762`, `28a1722`,
+`b2a1384`, `6c2bdc6`), but Task 3's blocking human-verify checkpoint had never run —
+no `06-03-SUMMARY.md` existed. Also found an uncommitted working-tree fix from that
+prior session: the deck-exhaustion navigate to `/wait` only fired on the post-vote
+path, so reopening a link whose bootstrap already covered every deck movie fell
+through to an empty card stack instead of redirecting. Folded both cases into one
+effect keyed on `cursor >= remaining.length`, added a regression test, committed as
+`f9a0e58`.
+
+Ran the checkpoint live against `./gradlew bootRun` with two seeded test sessions
+(deck rows inserted directly into `session.pinned_deck` via SQL — TMDB_API_TOKEN is
+still unavailable on this dev machine, same workaround as Phase 5). Browser
+automation wasn't connected this session, so the developer drove the walkthrough
+directly rather than via screenshots.
+
+Five of six items passed clean (stack depth, tilt/tint, commit feel, desktop
+buttons, resume-coverage-by-test). Item 5 (deck exhaustion) **failed on first
+try**: swiping the last card landed on the join-a-session form instead of the
+welcome-back screen. Root cause: the exhaustion `navigate()` to `/wait` dropped the
+`?token=` query param entirely — since the token lives only in the URL (D-05, no
+browser storage), the destination route saw an unauthenticated load. This is a
+standing pattern to watch for now: *every* internal `navigate()` to another
+token-gated route must forward the token explicitly. Fixed in `a61f820`, and both
+exhaustion tests in `SwipeScreen.test.tsx` were strengthened with a probe route
+component asserting the token itself round-trips — the original tests only checked
+that the destination *text* appeared, which is exactly why they didn't catch this.
+
+Also implemented two feel-adjustments requested during the same checkpoint (button
+hover state, a 220ms transition on the card stack's per-slot transform so the next
+card promotion animates instead of snapping), then re-verified live on a fresh
+seeded session — all six items passed.
+
+Test fixture cleanup: both seeded sessions' participant/vote/session rows were
+deleted after verification; nothing left in the dev database.
+
+`06-03-SUMMARY.md` written. STATE.md progress corrected by hand (18→19 completed
+plans, 86%→90%) — the same recurring frontmatter-drift defect logged after every
+plan close-out since 05-01 did not reproduce loudly this time since no GSD
+state-mutation CLI verb ran in this session (STATE.md was edited directly); worth
+noting the defect is specifically in `gsd-tools`' state verbs, not in STATE.md
+itself.
+
+Full plan SUMMARY: `.planning/phases/06-frontend-spa/06-03-SUMMARY.md`.
+
+Next: 06-04 (waiting screen — replaces the `/wait` placeholder this plan's checkpoint
+exposed) and 06-05 (results view), both non-autonomous.
+
 ## Format for future entries
 
 ```
