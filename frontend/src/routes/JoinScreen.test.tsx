@@ -138,6 +138,31 @@ describe('JoinScreen', () => {
     })
   })
 
+  // SESH-01 requires a shareable join link, not just a code shown as plain text -- and the
+  // shared link must never carry the viewer's own bearer token (D-05/T-06-11: a second person
+  // opening it must land on the join form, not silently authenticated as the first participant).
+  it('shows a copyable, tokenless share link built from the join code', async () => {
+    mockFetch({ bootstrap: bootstrapResponse({ deckPinned: false }) })
+    renderAt(`/s/${JOIN_CODE}?token=${TOKEN}`)
+
+    await waitFor(() => {
+      expect(screen.getByText(/welcome back, alice/i)).toBeInTheDocument()
+    })
+
+    const shareInput = screen.getByLabelText(/share this link/i) as HTMLInputElement
+    expect(shareInput.value).toBe(`http://localhost:3000/s/${JOIN_CODE}`)
+    expect(shareInput.value).not.toContain('token=')
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    fireEvent.click(screen.getByRole('button', { name: /copy link/i }))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(`http://localhost:3000/s/${JOIN_CODE}`)
+    })
+  })
+
   it('RSLT-01: mounting cold at /s/{code}?token= when the session status reports isComplete true redirects to /s/{code}/results with the token preserved', async () => {
     mockFetch({ status: statusResponse({ isComplete: true }) })
     renderAt(`/s/${JOIN_CODE}?token=${TOKEN}`)

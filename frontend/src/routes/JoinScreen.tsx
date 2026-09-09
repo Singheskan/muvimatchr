@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, joinSession } from '../api/client'
+import { SessionFiltersForm } from '../filters/SessionFiltersForm'
 import { useRouteGuard } from '../routing/useRouteGuard'
 import { useBootstrap } from '../session/useBootstrap'
 import { useSessionStatus } from '../session/useSessionStatus'
@@ -61,7 +62,45 @@ function BootstrappedParticipant({ code, token }: { code: string; token: string 
       <h1>Welcome back, {data.displayName}</h1>
       <p>Session: {data.joinCode}</p>
       <p>{data.deckPinned ? 'Your deck is ready.' : 'Waiting for the deck to be ready.'}</p>
+      <ShareLink joinCode={data.joinCode} />
+      {/* Filters lock server-side the instant the deck is pinned (SessionController's 409) --
+          hiding the form once that happens avoids offering edits the server will only reject. */}
+      {!data.deckPinned && <SessionFiltersForm sessionId={data.sessionId} token={token} />}
     </section>
+  )
+}
+
+// SESH-01: a real shareable link, not just a code shown as inert text. Built from the join code
+// alone -- never the viewer's own bearer token (D-05/T-06-11) -- so a second person opening it
+// lands on the join form and gets their own identity, never silently authenticated as whoever
+// shared the link.
+function ShareLink({ joinCode }: { joinCode: string }) {
+  const url = `${window.location.origin}/s/${joinCode}`
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <div>
+      <label htmlFor="share-link">Share this link so others can join</label>
+      <input
+        id="share-link"
+        type="text"
+        readOnly
+        value={url}
+        onFocus={(event) => event.target.select()}
+      />
+      <button type="button" onClick={handleCopy}>
+        {copied ? 'Copied!' : 'Copy link'}
+      </button>
+    </div>
   )
 }
 

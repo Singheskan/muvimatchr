@@ -27,6 +27,31 @@ export interface CreateSessionResponse {
   genre: number | null
 }
 
+export interface GenreResponse {
+  id: number
+  name: string
+}
+
+export interface WatchProviderResponse {
+  id: number
+  name: string
+  logoPath: string | null
+  displayPriority: number | null
+}
+
+export interface SessionFiltersResponse {
+  sessionId: string
+  region: string
+  providerIds: number[]
+  genre: number | null
+}
+
+export interface SessionFiltersRequest {
+  region?: string
+  providerIds?: number[]
+  genre?: number | null
+}
+
 export interface DeckProviderResponse {
   providerId: number
   providerName: string

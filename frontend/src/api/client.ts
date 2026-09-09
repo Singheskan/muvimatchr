@@ -1,11 +1,15 @@
 import type {
   CreateSessionResponse,
   DeckResponse,
+  GenreResponse,
   JoinResponse,
   SessionBootstrapResponse,
+  SessionFiltersRequest,
+  SessionFiltersResponse,
   SessionRosterResponse,
   VoteChoice,
   VoteStatusResponse,
+  WatchProviderResponse,
 } from './types'
 
 // Carries the response status and body text on any non-2xx response -- callers must branch on
@@ -106,4 +110,35 @@ export async function fetchStatus(sessionId: string, token: string): Promise<Vot
 // D-10's named waiting roster.
 export async function fetchRoster(sessionId: string, token: string): Promise<SessionRosterResponse> {
   return apiFetch<SessionRosterResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/votes/roster`, { token })
+}
+
+// /api/catalog/* is auth-only, not session-scoped (any valid participant token works for any
+// session's reference data) -- it exists purely to keep TMDB budget away from unauthenticated
+// callers, per CatalogReferenceController.
+export async function fetchGenres(token: string): Promise<GenreResponse[]> {
+  return apiFetch<GenreResponse[]>('/api/catalog/genres', { token })
+}
+
+export async function fetchWatchProviders(region: string, token: string): Promise<WatchProviderResponse[]> {
+  return apiFetch<WatchProviderResponse[]>(`/api/catalog/watch-providers?region=${encodeURIComponent(region)}`, {
+    token,
+  })
+}
+
+export async function fetchSessionFilters(sessionId: string, token: string): Promise<SessionFiltersResponse> {
+  return apiFetch<SessionFiltersResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/filters`, { token })
+}
+
+// 409 once the deck is pinned (locked) -- callers must surface that distinctly from a validation
+// error, not as a generic failure.
+export async function updateSessionFilters(
+  sessionId: string,
+  token: string,
+  request: SessionFiltersRequest,
+): Promise<SessionFiltersResponse> {
+  return apiFetch<SessionFiltersResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/filters`, {
+    token,
+    method: 'PUT',
+    body: request,
+  })
 }
