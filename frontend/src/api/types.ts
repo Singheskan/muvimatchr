@@ -19,6 +19,14 @@ export interface JoinResponse {
   resumeUrl: string
 }
 
+export interface CreateSessionResponse {
+  sessionId: string
+  joinCode: string
+  region: string
+  providerIds: number[]
+  genre: number | null
+}
+
 export interface DeckProviderResponse {
   providerId: number
   providerName: string

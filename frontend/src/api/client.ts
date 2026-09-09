@@ -1,4 +1,5 @@
 import type {
+  CreateSessionResponse,
   DeckResponse,
   JoinResponse,
   SessionBootstrapResponse,
@@ -58,6 +59,16 @@ export async function joinSession(joinCode: string, displayName: string): Promis
   return apiFetch<JoinResponse>(`/api/sessions/${encodeURIComponent(joinCode)}/participants`, {
     method: 'POST',
     body: { displayName },
+  })
+}
+
+// Filters (genre/region/providerIds) are deliberately not set here -- PROJECT.md/CTLG-02/CTLG-03
+// treat filtering as a shared, any-participant, post-creation action via PUT /filters, not a
+// creation-time host step (there is no host role, SessionController D-02). A blank session is
+// created and the creator joins it exactly like anyone else opening the resulting link.
+export async function createSession(): Promise<CreateSessionResponse> {
+  return apiFetch<CreateSessionResponse>('/api/sessions', {
+    method: 'POST',
   })
 }
 
