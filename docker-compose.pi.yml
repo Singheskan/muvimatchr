@@ -1,3 +1,5 @@
+# Runtime-only compose file for the Raspberry Pi: runs the pre-built muvimatchr-app image
+# transferred over via `docker save`/`docker load` -- no source tree, no Gradle/npm build on-device.
 services:
   db:
     image: postgres:18
@@ -5,8 +7,6 @@ services:
       POSTGRES_DB: muvimatchr
       POSTGRES_USER: muvimatchr
       POSTGRES_PASSWORD: muvimatchr
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - muvimatchr-pgdata:/var/lib/postgresql
     healthcheck:
@@ -17,17 +17,25 @@ services:
     restart: unless-stopped
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: muvimatchr-app:latest
     ports:
-      - "8080:8080"
+      - "8090:8080"
+    labels:
+      - homepage.group=Self-Hosted Projects
+      - homepage.name=MuviMatchr
+      - homepage.icon=mdi-movie-open-outline
+      - homepage.href=http://192.168.178.5:8090
+      - homepage.description=Pick a movie together
     env_file:
       - .env.local
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/muvimatchr
       SPRING_DATASOURCE_USERNAME: muvimatchr
       SPRING_DATASOURCE_PASSWORD: muvimatchr
+      # Real participants don't always start swiping the instant they join a shared link (unlike
+      # 04-CONTEXT.md D-06's same-room assumption behind the 60s default) -- widened for this
+      # deployment only; src/main/resources/application.properties' 60s default is unchanged.
+      VOTING_INACTIVITY_TIMEOUT_SECONDS: 300
     depends_on:
       db:
         condition: service_healthy

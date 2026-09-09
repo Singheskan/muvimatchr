@@ -54,3 +54,6 @@ frontend/dist/
 ### Local secrets (never committed) ###
 .env
 .env.local
+
+### Docker build artifacts (save/scp/load to the Pi -- never committed) ###
+muvimatchr-app.tar.gz
