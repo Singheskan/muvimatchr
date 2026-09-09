@@ -5,16 +5,23 @@ import { ApiError, fetchDeck } from '../api/client'
 import { SessionFiltersForm } from '../filters/SessionFiltersForm'
 import { useRouteGuard } from '../routing/useRouteGuard'
 import { useBootstrap } from '../session/useBootstrap'
+import { useRoster } from '../session/useRoster'
 import { useSessionStatus } from '../session/useSessionStatus'
 import { useSessionToken } from '../session/useSessionToken'
+import './lobby.css'
+
+// Joining doesn't broadcast anything over the socket (unlike votes/status) -- there is no
+// server-side event to hook, so the roster polls on a short interval only on this screen.
+const ROSTER_POLL_MS = 4000
 
 // D-04's own routing comment always called /s/:code the "(join/lobby)" route, but no code ever
 // actually kept a settled, bootstrapped participant there long enough to see it -- resolveScreen
 // fell straight through to 'swipe' the instant a token existed. This screen is what that comment
-// meant: a real stop where a fresh session's share link (SESH-01) and filters (CTLG-02/CTLG-03)
-// are actually reachable, before the deck gets pinned. There is no host role (SessionController
-// D-02) -- any participant may share the link, edit filters, or click "Start swiping"; the deck
-// pins session-wide for whoever does it first, exactly like every other shared action here.
+// meant: a real stop where a fresh session's share link (SESH-01), roster (D-10 rendered ahead of
+// the vote), and filters (CTLG-02/CTLG-03) are actually reachable, before the deck gets pinned.
+// There is no host role (SessionController D-02) -- any participant may share the link, edit
+// filters, or click "Start swiping"; the deck pins session-wide for whoever does it first, exactly
+// like every other shared action here.
 export function LobbyScreen() {
   const { code } = useParams<{ code: string }>()
   const token = useSessionToken()
@@ -24,6 +31,7 @@ export function LobbyScreen() {
   const bootstrap = useBootstrap(code, token)
   const sessionId = bootstrap.data?.sessionId
   const status = useSessionStatus(sessionId, token)
+  const roster = useRoster(sessionId, token, ROSTER_POLL_MS)
 
   useRouteGuard(code, 'lobby', {
     hasToken: Boolean(token),
@@ -66,21 +74,40 @@ export function LobbyScreen() {
   }
 
   if (bootstrap.isLoading || !bootstrap.data) {
-    return <p>Loading…</p>
+    return <p role="status">Loading…</p>
   }
 
   const data = bootstrap.data
 
   return (
-    <section>
+    <section className="lobby">
+      <p className="lobby-eyebrow">Session {data.joinCode}</p>
       <h1>Welcome, {data.displayName}</h1>
-      <p>Session: {data.joinCode}</p>
+
       <ShareLink joinCode={data.joinCode} />
+
+      <div className="lobby-roster">
+        <h2>Who&rsquo;s here</h2>
+        {roster.isLoading || !roster.data ? (
+          <p role="status">Loading…</p>
+        ) : (
+          <ul>
+            {roster.data.participants.map((participant) => (
+              <li key={participant.participantId}>{participant.displayName}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <SessionFiltersForm sessionId={sessionId!} token={token} />
-      <button type="button" onClick={handleStartSwiping} disabled={starting}>
-        Start swiping
-      </button>
-      {error && <p role="alert">{error}</p>}
+
+      <div className="lobby-start">
+        <button type="button" onClick={handleStartSwiping} disabled={starting} className="btn-primary">
+          {starting ? 'Starting…' : 'Start swiping'}
+        </button>
+        <p className="lobby-start-note">Anyone can start. The whole group gets the same picks.</p>
+        {error && <p role="alert">{error}</p>}
+      </div>
     </section>
   )
 }
@@ -103,12 +130,14 @@ function ShareLink({ joinCode }: { joinCode: string }) {
   }
 
   return (
-    <div>
+    <div className="share-link">
       <label htmlFor="share-link">Share this link so others can join</label>
-      <input id="share-link" type="text" readOnly value={url} onFocus={(event) => event.target.select()} />
-      <button type="button" onClick={handleCopy}>
-        {copied ? 'Copied!' : 'Copy link'}
-      </button>
+      <div className="share-link-row">
+        <input id="share-link" type="text" readOnly value={url} onFocus={(event) => event.target.select()} />
+        <button type="button" onClick={handleCopy} className="share-link-copy">
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
     </div>
   )
 }

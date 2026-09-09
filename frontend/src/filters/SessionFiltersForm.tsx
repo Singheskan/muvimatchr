@@ -3,10 +3,18 @@ import { ApiError, updateSessionFilters } from '../api/client'
 import { useGenres } from '../session/useGenres'
 import { useSessionFilters } from '../session/useSessionFilters'
 import { useWatchProviders } from '../session/useWatchProviders'
+import './filters.css'
 
 // Mirrors SessionController.kt's MAX_PROVIDER_IDS -- enforced client-side too so the cap is felt
-// as a disabled checkbox, not a submit-time 400.
+// as a disabled tile, not a submit-time 400.
 const MAX_PROVIDER_IDS = 20
+
+// /api/catalog/watch-providers is already sorted by TMDB's own displayPriority ascending (Phase 3)
+// -- the mainstream, globally-recognizable services genuinely do come first. Showing only that
+// head by default (with an explicit expand) is "the mainstream ones first" without hiding anyone.
+const MAINSTREAM_PROVIDER_COUNT = 10
+
+const PROVIDER_LOGO_BASE = 'https://image.tmdb.org/t/p/w92'
 
 interface SessionFiltersFormProps {
   sessionId: string
@@ -29,6 +37,7 @@ export function SessionFiltersForm({ sessionId, token }: SessionFiltersFormProps
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showAllProviders, setShowAllProviders] = useState(false)
 
   // Seed local editable state from the server once, on first load -- never again, so the form
   // doesn't stomp in-progress edits if the query happens to refetch.
@@ -42,6 +51,9 @@ export function SessionFiltersForm({ sessionId, token }: SessionFiltersFormProps
   }, [filters.data, initialized])
 
   const providers = useWatchProviders(region, token)
+  const allProviders = providers.data ?? []
+  const visibleProviders = showAllProviders ? allProviders : allProviders.slice(0, MAINSTREAM_PROVIDER_COUNT)
+  const hiddenCount = allProviders.length - visibleProviders.length
 
   function toggleProvider(id: number) {
     setProviderIds((current) => {
@@ -83,56 +95,86 @@ export function SessionFiltersForm({ sessionId, token }: SessionFiltersFormProps
   }
 
   if (filters.isLoading || !initialized) {
-    return <p>Loading filters…</p>
+    return <p role="status">Loading filters…</p>
   }
 
   return (
-    <section>
+    <div className="filters">
       <h2>Filters</h2>
       <form onSubmit={handleSubmit}>
-        <label htmlFor="filter-region">Region</label>
-        <input
-          id="filter-region"
-          value={region}
-          maxLength={2}
-          onChange={(event) => setRegion(event.target.value.toUpperCase())}
-        />
+        <div className="filters-row">
+          <div>
+            <label htmlFor="filter-region">Region</label>
+            <input
+              id="filter-region"
+              value={region}
+              maxLength={2}
+              onChange={(event) => setRegion(event.target.value.toUpperCase())}
+            />
+          </div>
+          <div>
+            <label htmlFor="filter-genre">Genre</label>
+            <select
+              id="filter-genre"
+              value={genre}
+              onChange={(event) => setGenre(event.target.value === '' ? '' : Number(event.target.value))}
+            >
+              <option value="">Any genre</option>
+              {(genres.data ?? []).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-        <label htmlFor="filter-genre">Genre</label>
-        <select
-          id="filter-genre"
-          value={genre}
-          onChange={(event) => setGenre(event.target.value === '' ? '' : Number(event.target.value))}
-        >
-          <option value="">Any genre</option>
-          {(genres.data ?? []).map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-
-        <fieldset>
+        <fieldset className="provider-fieldset">
           <legend>Streaming providers</legend>
-          {(providers.data ?? []).map((p) => (
-            <label key={p.id}>
-              <input
-                type="checkbox"
-                checked={providerIds.includes(p.id)}
-                disabled={!providerIds.includes(p.id) && providerIds.length >= MAX_PROVIDER_IDS}
-                onChange={() => toggleProvider(p.id)}
-              />
-              {p.name}
-            </label>
-          ))}
+          <div className="provider-grid">
+            {visibleProviders.map((p) => {
+              const selected = providerIds.includes(p.id)
+              return (
+                <label
+                  key={p.id}
+                  className={`provider-tile${selected ? ' provider-tile-selected' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    disabled={!selected && providerIds.length >= MAX_PROVIDER_IDS}
+                    onChange={() => toggleProvider(p.id)}
+                  />
+                  {p.logoPath ? (
+                    <img
+                      className="provider-logo"
+                      src={`${PROVIDER_LOGO_BASE}${p.logoPath}`}
+                      alt=""
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="provider-logo provider-logo-placeholder" aria-hidden="true">
+                      {p.name.slice(0, 1)}
+                    </span>
+                  )}
+                  <span className="provider-name">{p.name}</span>
+                </label>
+              )
+            })}
+          </div>
+          {allProviders.length > MAINSTREAM_PROVIDER_COUNT && (
+            <button type="button" className="provider-toggle" onClick={() => setShowAllProviders((v) => !v)}>
+              {showAllProviders ? 'Show fewer' : `Show ${hiddenCount} more`}
+            </button>
+          )}
         </fieldset>
 
-        <button type="submit" disabled={saving}>
+        <button type="submit" disabled={saving} className="btn-primary">
           Save filters
         </button>
       </form>
       {saved && <p role="status">Filters saved.</p>}
       {error && <p role="alert">{error}</p>}
-    </section>
+    </div>
   )
 }

@@ -1,0 +1,91 @@
+.lobby-eyebrow {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  margin: 0 0 4px;
+}
+
+.lobby h1 {
+  margin-bottom: 24px;
+}
+
+.share-link {
+  margin-bottom: 8px;
+}
+
+.share-link-row {
+  display: flex;
+  gap: 8px;
+}
+
+.share-link-row input {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.share-link-copy {
+  flex-shrink: 0;
+  padding: 12px 16px;
+}
+
+.lobby-roster {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 24px;
+}
+
+.lobby-roster h2 {
+  margin-bottom: 10px;
+}
+
+.lobby-roster ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lobby-roster li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.lobby-roster li::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--like);
+  flex-shrink: 0;
+}
+
+.lobby-start {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.lobby-start .btn-primary {
+  width: 100%;
+  font-size: 16px;
+  padding: 14px 20px;
+}
+
+.lobby-start-note {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}

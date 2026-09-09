@@ -43,7 +43,13 @@ function SwipeProbe() {
   return <p>swipe screen (token={searchParams.get('token')})</p>
 }
 
-function renderLobby(options: { bootstrap?: SessionBootstrapResponse; status?: VoteStatusResponse } = {}) {
+function renderLobby(
+  options: {
+    bootstrap?: SessionBootstrapResponse
+    status?: VoteStatusResponse
+    roster?: { participantId: string; displayName: string; votedCount: number; isFinished: boolean; isActive: boolean }[]
+  } = {},
+) {
   // Stateful: once /deck has been called (the real backend's pin trigger), subsequent /me
   // refetches reflect deckPinned: true -- mirrors the real pin-then-invalidate sequence
   // LobbyScreen's "Start swiping" handler depends on.
@@ -60,6 +66,15 @@ function renderLobby(options: { bootstrap?: SessionBootstrapResponse; status?: V
     }
     if (url.endsWith('/filters') && method === 'GET') {
       return jsonResponse({ sessionId: SESSION_ID, region: 'DE', providerIds: [], genre: null })
+    }
+    if (url.endsWith('/votes/roster')) {
+      return jsonResponse({
+        sessionId: SESSION_ID,
+        deckSize: 0,
+        participants: options.roster ?? [
+          { participantId: 'p1', displayName: 'Alice', votedCount: 0, isFinished: false, isActive: true },
+        ],
+      })
     }
     if (url === '/api/catalog/genres') {
       return jsonResponse([])
@@ -146,5 +161,20 @@ describe('LobbyScreen', () => {
     await waitFor(() => {
       expect(screen.getByText(`swipe screen (token=${TOKEN})`)).toBeInTheDocument()
     })
+  })
+
+  // Found live-testing: joining worked, but nothing showed who else had actually joined.
+  it("shows who's in the session", async () => {
+    renderLobby({
+      roster: [
+        { participantId: 'p1', displayName: 'Alice', votedCount: 0, isFinished: false, isActive: true },
+        { participantId: 'p2', displayName: 'Bob', votedCount: 0, isFinished: false, isActive: true },
+      ],
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Bob')).toBeInTheDocument()
   })
 })

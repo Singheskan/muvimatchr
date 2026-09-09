@@ -67,9 +67,9 @@ describe('SessionFiltersForm', () => {
       expect(screen.getByRole('option', { name: 'Comedy' })).toBeInTheDocument()
     })
     await waitFor(() => {
-      expect(screen.getByLabelText('Netflix')).toBeInTheDocument()
+      expect(screen.getByLabelText(/netflix/i)).toBeInTheDocument()
     })
-    expect(screen.getByLabelText('Prime Video')).toBeInTheDocument()
+    expect(screen.getByLabelText(/prime video/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/region/i)).toHaveValue('DE')
   })
 
@@ -78,11 +78,11 @@ describe('SessionFiltersForm', () => {
     renderForm()
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Netflix')).toBeInTheDocument()
+      expect(screen.getByLabelText(/netflix/i)).toBeInTheDocument()
     })
 
     fireEvent.change(screen.getByLabelText(/genre/i), { target: { value: '28' } })
-    fireEvent.click(screen.getByLabelText('Netflix'))
+    fireEvent.click(screen.getByLabelText(/netflix/i))
     fireEvent.click(screen.getByRole('button', { name: /save filters/i }))
 
     await waitFor(() => {
@@ -105,7 +105,7 @@ describe('SessionFiltersForm', () => {
     renderForm()
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Netflix')).toBeInTheDocument()
+      expect(screen.getByLabelText(/netflix/i)).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /save filters/i }))
