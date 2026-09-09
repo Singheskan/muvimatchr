@@ -9,12 +9,29 @@ import './filters.css'
 // as a disabled tile, not a submit-time 400.
 const MAX_PROVIDER_IDS = 20
 
-// /api/catalog/watch-providers is already sorted by TMDB's own displayPriority ascending (Phase 3)
-// -- the mainstream, globally-recognizable services genuinely do come first. Showing only that
-// head by default (with an explicit expand) is "the mainstream ones first" without hiding anyone.
+// /api/catalog/watch-providers is sorted by TMDB's own displayPriority ascending (Phase 3), but
+// that's a global popularity ranking -- it doesn't reliably put every mainstream-in-this-market
+// service (RTL+ is a real example: strong in Germany, ranked well outside TMDB's global top 10)
+// inside the default cut. These are pinned ahead of TMDB's own ordering, by name (case-insensitive
+// substring) so it survives TMDB's exact naming/casing without hardcoding fragile provider ids.
+const PINNED_PROVIDER_KEYWORDS = ['netflix', 'disney', 'prime video', 'hbo', 'rtl+', 'apple tv']
+// Verified live against real TMDB DE data: a bundle/addon variant of a pinned service (e.g. "HBO
+// Max Amazon Channel") can rank *better* than the plain canonical service ("HBO Max" itself), and
+// a plain keyword match would pin the bundle instead of the actual service. These are excluded
+// regardless of keyword match, everywhere -- TMDB names every region's addon/tier variants with
+// one of these, never the canonical entry itself.
+const PINNED_PROVIDER_EXCLUDE_KEYWORDS = ['channel', 'store', 'kids', 'with ads', 'free']
 const MAINSTREAM_PROVIDER_COUNT = 10
 
 const PROVIDER_LOGO_BASE = 'https://image.tmdb.org/t/p/w92'
+
+function isPinnedProvider(name: string): boolean {
+  const lower = name.toLowerCase()
+  if (PINNED_PROVIDER_EXCLUDE_KEYWORDS.some((keyword) => lower.includes(keyword))) {
+    return false
+  }
+  return PINNED_PROVIDER_KEYWORDS.some((keyword) => lower.includes(keyword))
+}
 
 interface SessionFiltersFormProps {
   sessionId: string
@@ -51,7 +68,13 @@ export function SessionFiltersForm({ sessionId, token }: SessionFiltersFormProps
   }, [filters.data, initialized])
 
   const providers = useWatchProviders(region, token)
-  const allProviders = providers.data ?? []
+  // Stable sort: pinned providers float to the front in TMDB's own relative order, unpinned ones
+  // keep following behind in that same original (displayPriority) order.
+  const allProviders = [...(providers.data ?? [])].sort((a, b) => {
+    const aPinned = isPinnedProvider(a.name)
+    const bPinned = isPinnedProvider(b.name)
+    return aPinned === bPinned ? 0 : aPinned ? -1 : 1
+  })
   const visibleProviders = showAllProviders ? allProviders : allProviders.slice(0, MAINSTREAM_PROVIDER_COUNT)
   const hiddenCount = allProviders.length - visibleProviders.length
 
