@@ -1,19 +1,31 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, fetchDeck, updateSessionFilters } from '../api/client'
 import { SessionFiltersForm } from '../filters/SessionFiltersForm'
+import { useSessionSocket } from '../realtime/useSessionSocket'
 import { useRouteGuard } from '../routing/useRouteGuard'
 import { useBootstrap } from '../session/useBootstrap'
 import { useRoster } from '../session/useRoster'
 import { useSessionFilters } from '../session/useSessionFilters'
 import { useSessionStatus } from '../session/useSessionStatus'
 import { useSessionToken } from '../session/useSessionToken'
+import { useWatchProviders } from '../session/useWatchProviders'
 import './lobby.css'
 
-// Joining doesn't broadcast anything over the socket (unlike votes/status) -- there is no
-// server-side event to hook, so the roster polls on a short interval only on this screen.
-const ROSTER_POLL_MS = 4000
+// MovieCatalogClient.discoverMovies only sends with_watch_providers (and even watch_region) to
+// TMDB when providerIds is non-empty -- an untouched session's empty default otherwise discovers
+// from TMDB's whole unfiltered global catalog, with no relationship at all to what's actually
+// streamable in the session's region. Matched by name, not a hardcoded TMDB id, same approach
+// SessionFiltersForm's own PINNED_PROVIDER_KEYWORDS already uses.
+const DEFAULT_PROVIDER_KEYWORD = 'netflix'
+
+// Neither joining nor deck-pinning broadcasts anything over the socket (unlike votes/status,
+// D-05 restricts broadcastStatus to VoteService.recordVote() alone) -- there is no server-side
+// event to hook for either, so the roster and the pinned-deck flag both poll on a short interval
+// only on this screen, instead of a participant needing to manually refresh to notice someone
+// else already started swiping.
+const LOBBY_POLL_MS = 4000
 
 // Auto-saves shortly after the last edit so filters never depend on a separate, easy-to-forget
 // "Save" click -- found live: a provider toggled but not explicitly saved before "Start swiping"
@@ -34,16 +46,29 @@ export function LobbyScreen() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const bootstrap = useBootstrap(code, token)
+  const bootstrap = useBootstrap(code, token, LOBBY_POLL_MS)
   const sessionId = bootstrap.data?.sessionId
   const status = useSessionStatus(sessionId, token)
-  const roster = useRoster(sessionId, token, ROSTER_POLL_MS)
+  const roster = useRoster(sessionId, token, LOBBY_POLL_MS)
+  const deckPinned = bootstrap.data?.deckPinned ?? false
+
+  // Covers the vote-triggered broadcasts that DO exist (once swiping starts elsewhere and someone
+  // casts a vote, D-05) -- deck-pinning itself has no broadcast (see LOBBY_POLL_MS above), so the
+  // poll above is what actually catches that transition; this subscription is what makes a
+  // reconnect/first-connect immediately re-check too, same reconcile contract every other screen
+  // already follows.
+  const onFrame = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['status', sessionId] })
+    queryClient.invalidateQueries({ queryKey: ['bootstrap', code, token] })
+  }, [queryClient, sessionId, code, token])
+
+  useSessionSocket(sessionId, onFrame)
 
   useRouteGuard(code, 'lobby', {
     hasToken: Boolean(token),
     status: status.data ?? null,
     myVotedCount: bootstrap.data?.votedMovieIds.length ?? 0,
-    deckPinned: bootstrap.data?.deckPinned ?? false,
+    deckPinned,
     ready: !bootstrap.isLoading && !status.isLoading,
   })
 
@@ -67,6 +92,28 @@ export function LobbyScreen() {
       setFiltersInitialized(true)
     }
   }, [filters.data, filtersInitialized])
+
+  // Runs once, after initialization, purely to fill in a sensible default -- gated on a ref
+  // (not just "providerIds is empty") so a participant who deliberately unchecks every provider
+  // later is never fought back to Netflix by this effect re-firing.
+  const providers = useWatchProviders(region, token)
+  const defaultProviderApplied = useRef(false)
+  useEffect(() => {
+    if (
+      defaultProviderApplied.current ||
+      !filtersInitialized ||
+      !providers.data ||
+      providerIds.length > 0 ||
+      (filters.data?.providerIds.length ?? 0) > 0
+    ) {
+      return
+    }
+    defaultProviderApplied.current = true
+    const netflix = providers.data.find((p) => p.name.toLowerCase().includes(DEFAULT_PROVIDER_KEYWORD))
+    if (netflix) {
+      setProviderIds([netflix.id])
+    }
+  }, [filtersInitialized, providers.data, providerIds, filters.data])
 
   const saveFilters = useCallback(async () => {
     if (!sessionId || !token) {
@@ -186,6 +233,12 @@ export function LobbyScreen() {
         )}
       </div>
 
+      {deckPinned && (
+        <p role="status" className="lobby-already-started">
+          Someone already started swiping — joining you now…
+        </p>
+      )}
+
       {filtersInitialized && (
         <SessionFiltersForm
           token={token}
@@ -198,11 +251,12 @@ export function LobbyScreen() {
           saving={filtersSaving}
           saved={filtersSaved}
           error={filtersError}
+          disabled={deckPinned}
         />
       )}
 
       <div className="lobby-start">
-        <button type="button" onClick={handleStartSwiping} disabled={starting} className="btn-primary">
+        <button type="button" onClick={handleStartSwiping} disabled={starting || deckPinned} className="btn-primary">
           {starting ? 'Starting…' : 'Start swiping'}
         </button>
         <p className="lobby-start-note">Anyone can start. The whole group gets the same picks.</p>
@@ -222,7 +276,22 @@ function ShareLink({ joinCode }: { joinCode: string }) {
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(url)
+      // navigator.clipboard requires a secure context (HTTPS or localhost) -- undefined on a
+      // plain-HTTP LAN deployment like this one, so mobile browsers fall through to the
+      // execCommand path below rather than throwing straight into the catch below it.
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = url
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
       setCopied(true)
     } catch {
       setCopied(false)

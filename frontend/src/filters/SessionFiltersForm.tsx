@@ -42,6 +42,7 @@ interface SessionFiltersFormProps {
   saving: boolean
   saved: boolean
   error: string | null
+  disabled?: boolean
 }
 
 // CTLG-02/CTLG-03 as a real screen: Phase 6 wired the join/swipe/wait/results path but never gave
@@ -67,6 +68,7 @@ export function SessionFiltersForm({
   saving,
   saved,
   error,
+  disabled = false,
 }: SessionFiltersFormProps) {
   const genres = useGenres(token)
   const providers = useWatchProviders(region, token)
@@ -93,6 +95,7 @@ export function SessionFiltersForm({
             value={region}
             maxLength={2}
             onChange={(event) => onRegionChange(event.target.value.toUpperCase())}
+            disabled={disabled}
           />
         </div>
         <div>
@@ -101,6 +104,7 @@ export function SessionFiltersForm({
             id="filter-genre"
             value={genre}
             onChange={(event) => onGenreChange(event.target.value === '' ? '' : Number(event.target.value))}
+            disabled={disabled}
           >
             <option value="">Any genre</option>
             {(genres.data ?? []).map((g) => (
@@ -122,7 +126,7 @@ export function SessionFiltersForm({
                 <input
                   type="checkbox"
                   checked={selected}
-                  disabled={!selected && providerIds.length >= MAX_PROVIDER_IDS}
+                  disabled={disabled || (!selected && providerIds.length >= MAX_PROVIDER_IDS)}
                   onChange={() => onToggleProvider(p.id)}
                 />
                 {p.logoPath ? (

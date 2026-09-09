@@ -166,16 +166,44 @@ describe('LobbyScreen', () => {
     })
   })
 
+  // A session with no provider chosen yet (the GET /filters mock returns providerIds: []) should
+  // default to Netflix once the watch-providers list loads -- otherwise MovieCatalogClient never
+  // sends with_watch_providers/watch_region to TMDB at all, and the deck comes back completely
+  // unfiltered by real regional availability.
+  it('defaults the provider selection to Netflix when the session has none chosen yet', async () => {
+    const mockFetchFn = renderLobby()
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/netflix/i)).toBeChecked()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /start swiping/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(`swipe screen (token=${TOKEN})`)).toBeInTheDocument()
+    })
+
+    const putCall = mockFetchFn.mock.calls.find(
+      (call) => (call[0] as string).endsWith('/filters') && (call[1] as RequestInit)?.method === 'PUT',
+    )
+    expect(putCall).toBeDefined()
+    expect(JSON.parse((putCall![1] as RequestInit).body as string)).toEqual({
+      region: 'DE',
+      genre: null,
+      providerIds: [8],
+    })
+  })
+
   // Found live-testing: a provider toggled right before clicking "Start swiping" -- faster than
-  // the autosave debounce -- silently pinned the deck with the *old* (empty) filters. The
-  // selected provider never affected the fetched deck at all. This proves the fix: "Start
-  // swiping" must flush the current selection itself, not rely on the debounce having already
-  // fired.
+  // the autosave debounce -- silently pinned the deck with the *old* filters. The selection never
+  // affected the fetched deck at all. This proves the fix: "Start swiping" must flush the current
+  // selection itself, not rely on the debounce having already fired. Netflix now defaults to
+  // checked, so this exercises the flush by toggling it back OFF rather than on.
   it('saves a just-toggled provider before pinning the deck, even when clicked faster than the autosave debounce', async () => {
     const mockFetchFn = renderLobby()
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/netflix/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/netflix/i)).toBeChecked()
     })
 
     // Synchronous, back-to-back -- no time passes for the 500ms autosave debounce to fire before
@@ -194,11 +222,11 @@ describe('LobbyScreen', () => {
     expect(JSON.parse((putCall![1] as RequestInit).body as string)).toEqual({
       region: 'DE',
       genre: null,
-      providerIds: [8],
+      providerIds: [],
     })
 
     // The filters PUT must land before the deck fetch, not race it -- a deck fetched with the
-    // still-empty filters would reproduce the exact bug this test guards against.
+    // still-checked-Netflix filters would reproduce the exact bug this test guards against.
     const putIndex = mockFetchFn.mock.calls.findIndex(
       (call) => (call[0] as string).endsWith('/filters') && (call[1] as RequestInit)?.method === 'PUT',
     )
