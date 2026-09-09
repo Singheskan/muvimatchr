@@ -1072,6 +1072,68 @@ Next: formal phase verification for Phase 6 (STATE.md status is `verifying`), th
 milestone completion review — `/gsd-complete-milestone` or equivalent, developer's call. The
 06-04 reconnect retest should happen before or as part of that.
 
+### 2026-09-09 — Post-Phase-6 live testing: real gaps found and fixed against ROADMAP intent
+
+After Phase 6 was marked execution-complete, the developer asked to actually test everything
+originally intended, wired to a real TMDB token. Live testing surfaced a chain of real gaps that
+automated tests and the phase checkpoints hadn't caught, since each one only shows up when a real
+person tries to use the whole app end to end:
+
+1. **No way to create a session through the SPA at all.** D-04's route table never allocated a
+   route for it — the root route was static text. Added `CreateSessionScreen` (`fa16bf0`): calls
+   the already-existing `POST /api/sessions`, joins as the creator like anyone else (no host role
+   introduced, matching `SessionController` D-02), lands on the session route.
+2. **No shareable link, no filters UI at all.** SESH-01 (shareable link) and CTLG-02/CTLG-03
+   (genre/provider/region filtering) had backend support since Phase 2/3 but no frontend ever
+   built for them. Added a copyable share link and `SessionFiltersForm` (`1f37435`).
+3. **The share link/filters were unreachable in practice.** `resolveScreen` (06-04) had no
+   "lobby" state — any bootstrapped participant fell straight through to `/swipe` instantly, even
+   though D-04's own routing comment always called `/s/:code` the "(join/lobby)" route. Added a
+   real `'lobby'` screen state gated on `deckPinned`, with a `LobbyScreen` participants actually
+   stay on until someone clicks "Start swiping" (`094ef1b`).
+4. **Visual design.** The app was still the unmodified Vite scaffold (light theme, purple accent,
+   fixed 1126px desktop width). Replaced with a cinema-house dark palette, Fraunces/Work Sans
+   typography, and a mobile-first layout, applied via global tokens so every screen picked it up
+   (`95af1f2`).
+5. **Mainstream providers missing from the picker.** TMDB's own `displayPriority` ranking doesn't
+   reliably surface every regionally-mainstream service — RTL+ and HBO Max both sit outside a
+   plain top-10 cut in real DE data. Pinned Netflix/Disney Plus/Amazon Prime Video/HBO
+   Max/RTL+/Apple TV ahead of TMDB's ordering by name, with an exclusion list (`channel`, `store`,
+   `kids`, `with ads`, `free`) discovered necessary after finding that same-brand bundle variants
+   (e.g. "HBO Max Amazon Channel", priority 11) can rank *better* than the canonical service
+   itself (plain "HBO Max", priority 28) — verified against real TMDB DE data both times (`4d1a16e`).
+6. **No roster in the lobby.** Reused the existing `useRoster` hook (extended with an optional
+   poll interval, since joining doesn't broadcast over the socket — no server event exists for
+   it) to show who's actually joined (`95af1f2`).
+7. **The filters UI didn't actually affect the fetched deck.** The most serious find: backend
+   filtering was correct throughout (repeatedly verified live via direct API calls — a
+   Netflix-only filter genuinely returns only Netflix titles). The bug was a separate "Save
+   filters" button independent of "Start swiping" — toggling a provider and clicking "Start
+   swiping" without saving first pinned the deck with the old (often empty) filters, so a selected
+   provider silently had no effect. Fixed by lifting filter state into `LobbyScreen`, which now
+   autosaves 500ms after the last edit *and* explicitly flushes the current selection before
+   pinning the deck, closing the race a debounce alone can't close (`cbe4f1c`).
+
+Also fixed as a bookkeeping-only correction: `RELI-01` (Phase 1, database survival) was verified
+by `RestartSurvivalTest` back in Phase 1 but its REQUIREMENTS.md checkbox was never actually
+ticked — marked `Complete`, no functional change.
+
+Every fix above shipped with its own TDD test coverage (RED-then-GREEN, matching this project's
+established discipline) and was independently verified live against the real TMDB API before and
+after, not just unit-tested. All 84 frontend tests green, full `./gradlew build` green throughout.
+Developer confirmed live: the full create → lobby → filter → swipe → wait → results flow now
+works end to end, including a real multi-match tie resolving deterministically and a real
+Netflix-only filter correctly restricting the deck.
+
+All commits pushed to `origin/main` (GitHub) as they landed, keeping the push-after-every-wave
+habit intact throughout.
+
+**Carried-forward open items, unchanged from before this session:**
+- 06-04's reconnect checkpoint items 4-6 (indicator/reconcile/no-duplicate-frames) still not
+  verified — needs a real network-toggle retest, not DevTools' Offline throttle.
+- STATE.md status is still `verifying` — formal phase verification / milestone completion review
+  has not been run.
+
 ## Format for future entries
 
 ```
